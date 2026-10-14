@@ -4,6 +4,13 @@
 <h4 class="mb-3">{% trans "Edit Profile" %}</h4>
 <form method="post" enctype="multipart/form-data" class="card p-3">
     {% csrf_token %}
+    {% with photo=request.user.avatar_url %}
+    {% if photo %}
+    <div class="mb-3 text-center">
+        <img src="{{ photo }}" alt="" class="rounded-circle" style="width:96px;height:96px;object-fit:cover;">
+    </div>
+    {% endif %}
+    {% endwith %}
     {% for field in form %}
     <div class="mb-2">
         <label class="form-label small">{{ field.label }}</label>

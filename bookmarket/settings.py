@@ -581,3 +581,15 @@ STAFF_2FA_MAX_AGE_SECONDS = int(os.environ.get('STAFF_2FA_MAX_AGE_SECONDS', 12 *
 # Bump (or set via env) to force every installed client to fetch a fresh service worker
 # cache even when no precached static file changed.
 PWA_VERSION = os.environ.get('PWA_VERSION', '1')
+
+
+# Errors to the console so a host's log viewer (Wasmer, Docker, journald) shows the full traceback of any 500.
+# Django's default only e-mails admins, which leaves a hosted app with an unexplained "500" and an empty log.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '%(levelname)s %(name)s: %(message)s'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
+    'root': {'handlers': ['console'], 'level': os.environ.get('LOG_LEVEL', 'WARNING')},
+    'loggers': {'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False}},
+}

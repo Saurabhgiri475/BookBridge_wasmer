@@ -100,6 +100,20 @@ should not stay in your settings) and redeploy. It only creates a missing accoun
 password. Anyone could have signed up with that username/email first, in which case nothing happens - use another one.
 On a machine with a terminal (local, SSH) the usual `python manage.py createsuperuser` works too.
 
+### Fresh start (wipe all data)
+Wasmer gives no shell, so to start over - e.g. signup says "An account with this email already exists" because of test
+signups - set these environment variables for **one** deploy:
+
+| Variable | Value |
+|---|---|
+| `RESET_DATABASE` | `DELETE-ALL-DATA` |
+| `DJANGO_SUPERUSER_USERNAME` / `_EMAIL` / `_PASSWORD` | optional: the new owner account is created right after the wipe |
+
+Redeploy. Every row (users, books, orders, wallets, staff roles...) is deleted and the tables are kept; the standard
+staff roles are recreated. It runs **once per value**, so leaving the variable set will not wipe again on later deploys
+(to wipe again, use `DELETE-ALL-DATA:2`). Still, delete it after the deploy. Files already uploaded to an S3/R2 bucket
+or a volume are **not** removed - empty the bucket yourself if you want those gone too. This cannot be undone.
+
 ### Staff roles (instead of more superusers)
 Each deploy also creates the staff role groups (Super Admin, Finance, Fraud Team, Customer Support, Partner
 Verification, Content Moderator) if they are missing - roles you have already tuned are never overwritten. (If your roles
@@ -109,6 +123,12 @@ superuser (the owner, created above). Then give everyone else a role: Django adm
 **Staff status** > pick one or more **Groups** > Save. They can then open only the dashboard areas and admin tables
 their role allows (others return 403). A role-only account cannot create users or edit groups, so the first account
 must be the superuser.
+
+## Profile photo / uploads give a 500 or "couldn't store your photo"
+Wasmer's disk is not writable or not kept between deploys, so avatars and book photos need cloud storage: set the
+`S3_*` variables above (Backblaze B2 / Cloudflare R2). Without them a photo upload can't be saved (the app now shows an
+error message instead of a blank 500). Server errors are also printed in full to the app log - open the Wasmer log
+viewer to read the traceback. `LOG_LEVEL=INFO` adds more detail.
 
 ## Notes
 * Scanning book covers uses the API engines (Gemini / OCR.space / Google Vision) first; Tesseract is

@@ -73,3 +73,46 @@ class SignupUsernameTests(TestCase):
         form = self._form('plain_name')
         form.is_valid()
         self.assertNotIn('username', form.errors)
+
+
+class ProfilePhotoFailureTests(TestCase):
+    """A photo the server cannot store must not turn the profile page into a 500."""
+
+    def test_unwritable_media_root_shows_form_error(self):
+        import io
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from PIL import Image
+        user = User.objects.create_user(username='photo1', email='photo1@example.com', password='Str0ng-Pass-9271')
+        self.client.force_login(user)
+        buf = io.BytesIO()
+        Image.new('RGB', (40, 40), 'red').save(buf, 'PNG')
+        data = {'first_name': 'A', 'last_name': 'B', 'email': 'photo1@example.com', 'phone': '', 'address': '',
+                'city': '', 'pincode': '', 'avatar': SimpleUploadedFile('a.png', buf.getvalue(), 'image/png')}
+        with override_settings(MEDIA_ROOT='/proc/not-writable'), self.assertLogs('accounts.views', level='ERROR'):
+            response = self.client.post('/accounts/profile/edit/', data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "store your photo")
+
+
+class AvatarDisplayTests(TestCase):
+    def test_uploaded_photo_is_shown_on_profile_and_navbar(self):
+        import io, tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new('RGB', (40, 40), 'blue').save(buf, 'PNG')
+        with tempfile.TemporaryDirectory() as tmp, override_settings(MEDIA_ROOT=tmp):
+            user = User.objects.create_user(username='pic1', email='pic1@example.com', password='Str0ng-Pass-9271')
+            user.avatar.save('me.png', SimpleUploadedFile('me.png', buf.getvalue(), 'image/png'))
+            self.client.force_login(user)
+            response = self.client.get(reverse('accounts:profile'))
+        self.assertContains(response, '/media/avatars/me')
+        self.assertContains(response, 'rounded-circle')
+
+    def test_no_photo_keeps_the_icon(self):
+        user = User.objects.create_user(username='nopic', email='nopic@example.com', password='Str0ng-Pass-9271')
+        self.assertEqual(user.avatar_url(), '')
+        self.client.force_login(user)
+        self.assertContains(self.client.get(reverse('accounts:profile')), 'bi-person-circle')

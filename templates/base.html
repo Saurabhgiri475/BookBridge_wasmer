@@ -137,7 +137,7 @@
                     {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi bi-person-circle"></i> {{ user.username }}
+                            {% with nav_photo=user.avatar_url %}{% if nav_photo %}<img src="{{ nav_photo }}" alt="" class="rounded-circle" style="width:24px;height:24px;object-fit:cover;vertical-align:-6px;">{% else %}<i class="bi bi-person-circle"></i>{% endif %}{% endwith %} {{ user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             {% if user.is_staff %}

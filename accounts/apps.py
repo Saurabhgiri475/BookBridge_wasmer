@@ -12,7 +12,36 @@ def bootstrap_admin(sender, **kwargs):
     from django.apps import apps
     last = [c for c in apps.get_app_configs() if c.models_module][-1]
     if sender is last:
+        reset_database_once()
         bootstrap_superuser()
+
+
+RESET_CONFIRM_PHRASE = 'DELETE-ALL-DATA'
+
+
+def reset_database_once():
+    """One-off "fresh start" for hosts with no shell (Wasmer Edge): wipe every row, keep the tables.
+
+    Only runs when RESET_DATABASE is exactly 'DELETE-ALL-DATA'. It is guarded so it fires ONCE per value: a marker row
+    is written to django_migrations (which `flush` never touches) before the wipe, so later deploys with the variable
+    still set do nothing. To wipe again, change the value to 'DELETE-ALL-DATA:2' (any suffix after the colon).
+    Files already uploaded to S3/R2 buckets or a volume are NOT deleted.
+    """
+    value = os.environ.get('RESET_DATABASE', '').strip()
+    if value != RESET_CONFIRM_PHRASE and not value.startswith(RESET_CONFIRM_PHRASE + ':'):
+        return
+    from django.core.management import call_command
+    from django.db import connection
+    from django.db.migrations.recorder import MigrationRecorder
+
+    marker = 'reset_' + value.replace(':', '_')[:240]
+    qs = MigrationRecorder(connection).migration_qs
+    if qs.filter(app='_database_reset', name=marker).exists():
+        return  # already done for this value (also stops the recursion from flush's own post_migrate)
+    qs.create(app='_database_reset', name=marker)
+    logger.warning('RESET_DATABASE: wiping ALL data now. Remove the RESET_DATABASE variable after this deploy.')
+    call_command('flush', interactive=False, verbosity=0)
+    logger.warning('RESET_DATABASE: done - all old data was wiped.')
 
 
 def bootstrap_superuser():
@@ -21,7 +50,7 @@ def bootstrap_superuser():
     Runs after every `migrate`. Needs DJANGO_SUPERUSER_USERNAME, DJANGO_SUPERUSER_EMAIL and
     DJANGO_SUPERUSER_PASSWORD. It only ever CREATES a missing account - an existing user (or an
     existing account with that email) is never modified, so it cannot reset a password or promote
-    anyone. Remove the three variables after the first successful login.
+    anyone. Remove the three variables after the first successful login. RESET_DATABASE (below) runs first, so a reset followed by a new admin works in one deploy.
     """
     username = os.environ.get('DJANGO_SUPERUSER_USERNAME', '').strip()
     email = os.environ.get('DJANGO_SUPERUSER_EMAIL', '').strip()

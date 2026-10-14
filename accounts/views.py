@@ -1,3 +1,4 @@
+import logging
 import json
 
 from django.conf import settings
@@ -450,9 +451,24 @@ def edit_profile(request):
     if request.method == 'POST':
         form = ProfileForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            form.save()
-            messages.success(request, _('Profile updated.'))
-            return redirect('accounts:profile')
+            try:
+                with transaction.atomic():  # savepoint: a failed save must not poison the request's transaction
+                    form.save()
+            except Exception:
+                # A new photo that cannot be written (read-only / ephemeral disk, bucket not set up or unreachable)
+                # used to surface as a bare 500. Keep that case a normal form error; anything else is a real bug.
+                if 'avatar' not in request.FILES:
+                    raise
+                logging.getLogger(__name__).exception('Profile photo could not be stored')
+                request.user.refresh_from_db()
+                form = ProfileForm(request.POST, instance=request.user)
+                form.is_valid()
+                photo_error = _("We couldn't store your photo right now. Save your other details without it, or try again later.")
+                form.add_error('avatar', photo_error)
+                messages.error(request, photo_error)  # edit_profile.html does not print field errors
+            else:
+                messages.success(request, _('Profile updated.'))
+                return redirect('accounts:profile')
     else:
         form = ProfileForm(instance=request.user)
     return render(request, 'accounts/edit_profile.html', {'form': form})

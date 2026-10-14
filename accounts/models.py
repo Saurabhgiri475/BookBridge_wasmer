@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -6,6 +8,8 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 
+
+logger = logging.getLogger(__name__)
 
 OTP_VALIDITY_MINUTES = 10
 MAX_OTP_ATTEMPTS = 5  # wrong guesses allowed before an OTP is locked out and a fresh one must be requested
@@ -68,6 +72,17 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+    def avatar_url(self):
+        """URL of the profile photo, or '' when there is none or the storage cannot produce a link (a broken bucket
+        setting must not take every page that shows a photo down with it)."""
+        if not self.avatar:
+            return ''
+        try:
+            return self.avatar.url
+        except Exception:
+            logger.warning('Could not build the avatar URL for user %s', self.pk, exc_info=True)
+            return ''
 
     def save(self, *args, **kwargs):
         if not self.referral_code:
