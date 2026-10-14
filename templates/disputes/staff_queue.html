@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Disputes" %} - {% trans "Staff" %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <h4 class="mb-0"><i class="bi bi-shield-exclamation"></i> {% trans "Buyer disputes" %}</h4>
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'adminpanel:dashboard' %}">{% trans "Staff dashboard" %}</a>
+</div>
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><a class="text-decoration-none" href="?status=escalated"><div class="stat-card text-center {% if counts.escalated %}border-danger{% endif %}"><div class="stat-value text-danger">{{ counts.escalated }}</div><div class="text-muted small">{% trans "Need a decision" %}</div></div></a></div>
+    <div class="col-6 col-md-3"><a class="text-decoration-none" href="?status=open"><div class="stat-card text-center"><div class="stat-value text-warning">{{ counts.waiting }}</div><div class="text-muted small">{% trans "Waiting for seller" %}</div></div></a></div>
+    <div class="col-6 col-md-3"><a class="text-decoration-none" href="?status=seller_responded"><div class="stat-card text-center"><div class="stat-value">{{ counts.replied }}</div><div class="text-muted small">{% trans "Seller replied" %}</div></div></a></div>
+    <div class="col-6 col-md-3"><a class="text-decoration-none" href="?status=resolved"><div class="stat-card text-center"><div class="stat-value text-success">{{ counts.resolved }}</div><div class="text-muted small">{% trans "Resolved" %}</div></div></a></div>
+</div>
+<form method="get" class="d-flex gap-2 flex-wrap mb-3">
+    <select name="status" class="form-select form-select-sm" style="max-width:200px;" data-autosubmit>
+        <option value="all"{% if status == 'all' %} selected{% endif %}>{% trans "All statuses" %}</option>
+        <option value="active"{% if status == 'active' %} selected{% endif %}>{% trans "All active" %}</option>
+        {% for key, label in status_choices %}<option value="{{ key }}"{% if status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:280px;" placeholder="{% trans 'DSP number, order, book, buyer or seller' %}">
+    <button class="btn btn-outline-secondary btn-sm">{% trans "Filter" %}</button>
+</form>
+<div class="card">
+    {% if not page_obj %}<p class="text-muted small p-3 mb-0">{% trans "Nothing here." %}</p>{% else %}
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>{% trans "Dispute" %}</th><th>{% trans "Book" %}</th><th>{% trans "Buyer" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Problem" %}</th><th>{% trans "Opened" %}</th><th>{% trans "Status" %}</th><th></th></tr></thead>
+        <tbody>
+        {% for d in page_obj %}
+        <tr>
+            <td class="small">{{ d.reference }}</td>
+            <td>{{ d.book_title|truncatechars:34 }}</td>
+            <td class="small">{{ d.buyer.username }}</td>
+            <td class="small">{{ d.seller.username }}</td>
+            <td class="small text-muted">{{ d.get_category_display }}{% if d.seller_agreed %} <span class="badge bg-success">{% trans "Seller agreed" %}</span>{% elif d.auto_escalated %} <span class="badge bg-secondary">{% trans "No seller reply" %}</span>{% endif %}</td>
+            <td class="small text-muted">{{ d.created_at|date:"d M Y" }}</td>
+            <td>{% include 'disputes/_status_badge.html' with dispute=d %}</td>
+            <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{% url 'disputes:staff_detail' d.pk %}">{% if d.status == 'escalated' %}{% trans "Review" %}{% else %}{% trans "View" %}{% endif %}</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+    {% endif %}
+</div>
+{% if page_obj.has_other_pages %}
+<nav class="mt-3"><ul class="pagination pagination-sm justify-content-center">
+    {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q|urlencode }}&page={{ page_obj.previous_page_number }}">{% trans "Prev" %}</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?status={{ status }}&q={{ q|urlencode }}&page={{ page_obj.next_page_number }}">{% trans "Next" %}</a></li>{% endif %}
+</ul></nav>
+{% endif %}
+{% endblock %}

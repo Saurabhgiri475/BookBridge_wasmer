@@ -1,0 +1,11 @@
+{# Needs `rep` = badges.reputation(partner). Renders the star rating and earned badges inline. #}
+{% load i18n %}<span class="d-inline-flex flex-wrap align-items-center gap-1">
+    {% if rep.stats.rating %}
+    <span class="small fw-semibold" title="{% blocktrans trimmed count counter=rep.stats.review_count %}{{ counter }} seller review{% plural %}{{ counter }} seller reviews{% endblocktrans %}"><i class="bi bi-star-fill text-warning"></i> {{ rep.stats.rating }} <span class="text-muted fw-normal">({{ rep.stats.review_count }})</span></span>
+    {% else %}
+    <span class="small text-muted">{% trans "No reviews yet" %}</span>
+    {% endif %}
+    {% for b in rep.badges %}
+    <span class="badge {{ b.css }}" title="{{ b.description }}"><i class="bi {{ b.icon }}"></i> {{ b.name }}</span>
+    {% endfor %}
+</span>

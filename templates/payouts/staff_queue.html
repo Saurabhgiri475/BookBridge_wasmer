@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Seller Payouts" %} - {% trans "Staff" %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <h4 class="mb-0"><i class="bi bi-cash-stack"></i> {% trans "Seller payouts" %}</h4>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-success btn-sm" href="{% url 'payouts:staff_export' %}?status={{ status }}&q={{ q|urlencode }}&seller={{ seller_id }}"><i class="bi bi-download"></i> {% trans "Export CSV" %}</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'adminpanel:dashboard' %}">{% trans "Staff dashboard" %}</a>
+    </div>
+</div>
+<p class="text-muted small">{% trans "Send each payout from your UPI app, then record the UTR here. BookBridge doesn't move the money itself." %}</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value text-warning">₹{{ totals.pending|default:0|intcomma }}</div><div class="text-muted small">{% blocktrans trimmed with n=totals.pending_n %}Pending ({{ n }}){% endblocktrans %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ totals.on_hold|default:0|intcomma }}</div><div class="text-muted small">{% trans "On hold" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value text-success">₹{{ totals.paid|default:0|intcomma }}</div><div class="text-muted small">{% trans "Paid" %}</div></div></div>
+    <div class="col-6 col-md-3"><a class="text-decoration-none" href="?status=recover"><div class="stat-card text-center {% if totals.recover_n %}border-danger{% endif %}"><div class="stat-value text-danger">₹{{ totals.recover|default:0|intcomma }}</div><div class="text-muted small">{% blocktrans trimmed with n=totals.recover_n %}To recover - refunded after payout ({{ n }}){% endblocktrans %}</div></div></a></div>
+</div>
+
+{% if by_seller and status == 'pending' and not seller_id %}
+<div class="card mb-3">
+    <div class="card-header">{% trans "Pending by seller" %}</div>
+    <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+        <tbody>
+        {% for row in by_seller %}
+            <tr><td>{{ row.seller__username }}</td><td>{% blocktrans trimmed count counter=row.n %}{{ counter }} order{% plural %}{{ counter }} orders{% endblocktrans %}</td><td class="text-end">₹{{ row.total|intcomma }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="?status=pending&seller={{ row.seller_id }}">{% trans "Review &amp; pay" %}</a></td></tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</div>
+{% endif %}
+
+<form method="get" class="d-flex gap-2 flex-wrap mb-3">
+    <select name="status" class="form-select form-select-sm" style="max-width:180px;" data-autosubmit>
+        <option value="all"{% if status == 'all' %} selected{% endif %}>{% trans "All statuses" %}</option>
+        {% for key, label in status_choices %}<option value="{{ key }}"{% if status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        <option value="recover"{% if status == 'recover' %} selected{% endif %}>{% trans "Refunded after payout" %}</option>
+    </select>
+    <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'Seller, UTR, order or book' %}">
+    {% if seller_id %}<input type="hidden" name="seller" value="{{ seller_id }}">{% endif %}
+    <button class="btn btn-outline-secondary btn-sm">{% trans "Filter" %}</button>
+    {% if seller_id %}<a class="btn btn-link btn-sm" href="?status={{ status }}">{% trans "Clear seller" %}</a>{% endif %}
+</form>
+
+<form method="post" action="{% url 'payouts:staff_mark_paid' %}" id="payForm" data-confirm="{% trans 'Record these payouts as paid? Make sure the UPI transfer has already gone through.' %}">
+    {% csrf_token %}
+    <div class="card mb-3">
+        {% if not page_obj %}
+        <p class="text-muted small p-3 mb-0">{% trans "Nothing here." %}</p>
+        {% else %}
+        <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>{% if status == 'pending' %}<input type="checkbox" id="selAll" aria-label="{% trans 'Select all' %}">{% endif %}</th><th>{% trans "Released" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Order" %}</th><th class="text-end">{% trans "Net" %}</th><th>UPI ID</th><th>{% trans "Status" %}</th><th></th></tr></thead>
+            <tbody>
+            {% for payout in page_obj %}
+                <tr>
+                    <td>{% if payout.status == 'pending' %}<input type="checkbox" name="payout_ids" value="{{ payout.pk }}" class="rowSel" aria-label="{% blocktrans trimmed with id=payout.pk %}Select payout {{ id }}{% endblocktrans %}">{% endif %}</td>
+                    <td class="small text-muted">{{ payout.released_at|date:"d M Y" }}</td>
+                    <td>{{ payout.seller.username }}</td>
+                    <td><a href="{% url 'payouts:staff_detail' payout.pk %}">#{{ payout.order_ref }}</a><div class="small text-muted">{{ payout.book_title|truncatechars:34 }}</div></td>
+                    <td class="text-end fw-semibold">₹{{ payout.net_amount }}</td>
+                    <td class="small">
+                        {% if payout.current_upi %}{{ payout.current_upi }}{% else %}<span class="text-danger">{% trans "not set" %}</span>{% endif %}
+                        {% if payout.upi_recently_changed %}<div><span class="badge bg-danger">{% blocktrans trimmed with left=payout.upi_hold_left %}UPI hold: {{ left }} left{% endblocktrans %}</span></div>{% endif %}
+                        {% if payout.name_check_needed %}<div><span class="badge bg-warning text-dark">{% trans "UPI name unchecked" %}</span></div>{% endif %}
+                    </td>
+                    <td>{% include 'payouts/_status_badge.html' %}{% if payout.refunded_after_payout %}<div><span class="badge bg-danger">{% trans "Refunded after payout" %}</span></div>{% endif %}{% if payout.utr %}<div class="small text-muted">{{ payout.utr }}</div>{% endif %}</td>
+                    <td class="text-end">{% if payout.upi_link %}<a class="btn btn-outline-primary btn-sm" href="{{ payout.upi_link }}" title="{% trans 'Opens your UPI app with the amount filled in' %}">{% trans "Pay" %}</a>{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+    </div>
+    {% if status == 'pending' and page_obj %}
+    <div class="card p-3 mb-3">
+        <div class="small text-muted mb-2">{% trans "Tick the payouts one transfer covered (one seller at a time), then enter the UTR from your UPI app. Compare the name your UPI app shows for the ID with the seller's name before sending." %}</div>
+        <div class="d-flex gap-2 flex-wrap">
+            <input type="text" name="utr" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'UPI reference / UTR' %}" maxlength="30" autocomplete="off" required>
+            <button class="btn btn-success btn-sm">{% trans "Mark selected as paid" %}</button>
+        </div>
+    </div>
+    {% endif %}
+</form>
+
+{% if page_obj.has_other_pages %}
+<div class="d-flex gap-3 justify-content-center small mb-4">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&status={{ status }}&q={{ q|urlencode }}&seller={{ seller_id }}">&laquo; {% trans "Newer" %}</a>{% endif %}
+    <span class="text-muted">{% blocktrans trimmed with num=page_obj.number total=page_obj.paginator.num_pages %}Page {{ num }} of {{ total }}{% endblocktrans %}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&status={{ status }}&q={{ q|urlencode }}&seller={{ seller_id }}">{% trans "Older" %} &raquo;</a>{% endif %}
+</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+    var all = document.getElementById('selAll');
+    if (!all) return;
+    all.addEventListener('change', function () {
+        document.querySelectorAll('.rowSel').forEach(function (c) { c.checked = all.checked; });
+    });
+})();
+</script>
+{% endblock %}

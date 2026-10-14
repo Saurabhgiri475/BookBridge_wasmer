@@ -1,0 +1,493 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Staff Dashboard" %} - BookBridge{% endblock %}
+{% block content %}
+{% trans "deleted user" as deleted_label %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-speedometer2"></i> {% trans "Staff Dashboard" %}</h4>
+    <div class="d-flex gap-2">
+        {% if perms.adminpanel.cap_donations %}<a href="{% url 'donations:staff_queue' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-gift"></i> {% trans "Donations" %}{% if stats.pending_donation_count %} <span class="badge bg-danger">{{ stats.pending_donation_count }}</span>{% endif %}</a>{% endif %}
+        {% if perms.adminpanel.cap_finance %}<a href="{% url 'adminpanel:revenue_dashboard' %}" class="btn btn-outline-success btn-sm"><i class="bi bi-cash-coin"></i> {% trans "Revenue" %}</a>{% endif %}
+        <a href="/admin/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-gear"></i> {% trans "Full Django Admin" %}</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center">
+            <div class="stat-value">{{ stats.total_users|intcomma }}</div>
+            <div class="text-muted small">{% trans "Users" %}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center">
+            <div class="stat-value">{{ stats.books_listed|intcomma }}</div>
+            <div class="text-muted small">{% trans "Books Listed" %}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center">
+            <div class="stat-value">{{ stats.total_orders|intcomma }}</div>
+            <div class="text-muted small">{% trans "Total Orders" %}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center">
+            <div class="stat-value">{{ stats.pending_review_count|add:stats.flagged_live_count|add:stats.flagged_account_count|add:stats.pending_return_count|add:stats.pending_report_count|add:stats.pending_partner_count|add:stats.pending_donation_count|add:stats.escalated_dispute_count }}</div>
+            <div class="text-muted small">{% trans "Need Your Attention" %}</div>
+        </div>
+    </div>
+</div>
+
+{% if perms.adminpanel.cap_moderation or perms.adminpanel.cap_fraud %}
+<!-- Fraud Detection: listings under review -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-exclamation"></i> {% trans "Listings Under Review" %}</span>
+        <span class="badge bg-danger">{{ stats.pending_review_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if stats.pending_review_count or review_q %}
+        <form method="get" class="p-2 border-bottom d-flex align-items-center gap-2">
+            {% if live_flagged_q %}<input type="hidden" name="live_flagged_q" value="{{ live_flagged_q }}">{% endif %}
+            {% if flagged_q %}<input type="hidden" name="flagged_q" value="{{ flagged_q }}">{% endif %}
+            <input type="text" name="review_q" value="{{ review_q }}" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'Search by book or seller...' %}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">{% trans "Search" %}</button>
+            {% if review_q %}<a href="?{% if live_flagged_q %}live_flagged_q={{ live_flagged_q }}&{% endif %}{% if flagged_q %}flagged_q={{ flagged_q }}{% endif %}" class="btn btn-sm btn-link">{% trans "Clear" %}</a>{% endif %}
+        </form>
+        {% endif %}
+        {% if not books_under_review %}
+        <p class="text-muted small p-3 mb-0">
+            {% if review_q %}{% blocktrans trimmed with q=review_q %}No listings under review match "{{ q }}".{% endblocktrans %}{% else %}{% trans "Nothing waiting on review - Fraud Detection hasn't held any listings back." %}{% endif %}
+        </p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "Book" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Risk" %}</th><th>{% trans "Flags" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for book in books_under_review %}
+                    <tr>
+                        <td><a href="{% url 'books:detail' book.pk %}">{{ book.title }}</a></td>
+                        <td>{{ book.seller.username }}</td>
+                        <td><span class="badge bg-danger">{{ book.fraud_score }}/100</span></td>
+                        <td class="small text-muted">
+                            {% for flag in book.get_fraud_flags %}
+                            <div><span class="badge bg-secondary">{{ flag.severity }}</span> {{ flag.check }}</div>
+                            {% endfor %}
+                        </td>
+                        <td class="text-nowrap">
+                            <form method="post" action="{% url 'adminpanel:approve_book' book.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success">{% trans "Approve" %}</button>
+                            </form>
+                            <form method="post" action="{% url 'adminpanel:remove_book' book.pk %}" class="d-inline-flex align-items-center gap-1" data-confirm="{% blocktrans trimmed with title=book.title %}Remove '{{ title }}'? This takes the listing down for good.{% endblocktrans %}">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:130px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Remove" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if books_under_review.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if books_under_review.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&review_page={{ books_under_review.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ books_under_review.number }} / {{ books_under_review.paginator.num_pages }}</span></li>
+                {% if books_under_review.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&review_page={{ books_under_review.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_moderation or perms.adminpanel.cap_fraud %}
+<!-- Fraud Detection: live listings flagged at WARN_THRESHOLD (published, not held) -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-eye"></i> {% trans "Live Listings Flagged for Review" %}</span>
+        <span class="badge bg-warning text-dark">{{ stats.flagged_live_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if stats.flagged_live_count or live_flagged_q %}
+        <form method="get" class="p-2 border-bottom d-flex align-items-center gap-2">
+            {% if review_q %}<input type="hidden" name="review_q" value="{{ review_q }}">{% endif %}
+            {% if flagged_q %}<input type="hidden" name="flagged_q" value="{{ flagged_q }}">{% endif %}
+            <input type="text" name="live_flagged_q" value="{{ live_flagged_q }}" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'Search by book or seller...' %}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">{% trans "Search" %}</button>
+            {% if live_flagged_q %}<a href="?{% if review_q %}review_q={{ review_q }}&{% endif %}{% if flagged_q %}flagged_q={{ flagged_q }}{% endif %}" class="btn btn-sm btn-link">{% trans "Clear" %}</a>{% endif %}
+        </form>
+        {% endif %}
+        {% if not flagged_live_books %}
+        <p class="text-muted small p-3 mb-0">
+            {% if live_flagged_q %}{% blocktrans trimmed with q=live_flagged_q %}No flagged live listings match "{{ q }}".{% endblocktrans %}{% else %}{% trans "No live listings currently carry a fraud flag." %}{% endif %}
+        </p>
+        {% else %}
+        <p class="small text-muted p-2 mb-0">{% trans "Below the hold-for-review threshold, so these are already live - Fraud Detection flagged them for a second look rather than blocking them." %}</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "Book" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Risk" %}</th><th>{% trans "Flags" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for book in flagged_live_books %}
+                    <tr>
+                        <td><a href="{% url 'books:detail' book.pk %}">{{ book.title }}</a></td>
+                        <td>{{ book.seller.username }}</td>
+                        <td><span class="badge bg-warning text-dark">{{ book.fraud_score }}/100</span></td>
+                        <td class="small text-muted">
+                            {% for flag in book.get_fraud_flags %}
+                            <div><span class="badge bg-secondary">{{ flag.severity }}</span> {{ flag.check }}</div>
+                            {% endfor %}
+                        </td>
+                        <td class="text-nowrap">
+                            <form method="post" action="{% url 'adminpanel:clear_fraud_flag' book.pk %}" class="d-inline-flex align-items-center gap-1">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:130px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-success">{% trans "Clear Flag" %}</button>
+                            </form>
+                            <form method="post" action="{% url 'adminpanel:remove_book' book.pk %}" class="d-inline-flex align-items-center gap-1" data-confirm="{% blocktrans trimmed with title=book.title %}Remove '{{ title }}'? This takes the listing down for good.{% endblocktrans %}">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:130px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Remove" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if flagged_live_books.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if flagged_live_books.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&live_flagged_page={{ flagged_live_books.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ flagged_live_books.number }} / {{ flagged_live_books.paginator.num_pages }}</span></li>
+                {% if flagged_live_books.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&live_flagged_page={{ flagged_live_books.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_moderation %}
+<!-- Buyer-filed reports on listings -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-flag"></i> {% trans "Reported Listings" %}</span>
+        <span class="badge bg-danger">{{ stats.pending_report_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if not pending_reports %}
+        <p class="text-muted small p-3 mb-0">{% trans "No open reports from buyers." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "Book" %}</th><th>{% trans "Reported By" %}</th><th>{% trans "Reason" %}</th><th>{% trans "Details" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for report in pending_reports %}
+                    <tr>
+                        <td><a href="{% url 'books:detail' report.book.pk %}">{{ report.book.title }}</a></td>
+                        <td>{{ report.reporter.username|default:deleted_label }}</td>
+                        <td><span class="badge bg-secondary">{{ report.get_reason_display }}</span></td>
+                        <td class="small text-muted">{{ report.details|default:"-"|truncatechars:60 }}</td>
+                        <td class="text-nowrap">
+                            <form method="post" action="{% url 'adminpanel:dismiss_report' report.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">{% trans "Dismiss" %}</button>
+                            </form>
+                            <form method="post" action="{% url 'adminpanel:remove_book' report.book.pk %}" class="d-inline-flex align-items-center gap-1" data-confirm="{% blocktrans trimmed with title=report.book.title %}Remove '{{ title }}'? This takes the listing down for good.{% endblocktrans %}">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:130px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Remove Listing" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if pending_reports.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if pending_reports.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&reports_page={{ pending_reports.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ pending_reports.number }} / {{ pending_reports.paginator.num_pages }}</span></li>
+                {% if pending_reports.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&reports_page={{ pending_reports.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_fraud %}
+<!-- Fraud Detection: duplicate accounts -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people"></i> {% trans "Flagged Duplicate Accounts" %}</span>
+        <span class="badge bg-warning text-dark">{{ stats.flagged_account_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if stats.flagged_account_count or flagged_q %}
+        <form method="get" class="p-2 border-bottom d-flex align-items-center gap-2">
+            {% if review_q %}<input type="hidden" name="review_q" value="{{ review_q }}">{% endif %}
+            {% if live_flagged_q %}<input type="hidden" name="live_flagged_q" value="{{ live_flagged_q }}">{% endif %}
+            <input type="text" name="flagged_q" value="{{ flagged_q }}" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'Search by username...' %}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">{% trans "Search" %}</button>
+            {% if flagged_q %}<a href="?{% if review_q %}review_q={{ review_q }}&{% endif %}{% if live_flagged_q %}live_flagged_q={{ live_flagged_q }}{% endif %}" class="btn btn-sm btn-link">{% trans "Clear" %}</a>{% endif %}
+        </form>
+        {% endif %}
+        {% if not flagged_users %}
+        <p class="text-muted small p-3 mb-0">
+            {% if flagged_q %}{% blocktrans trimmed with q=flagged_q %}No flagged accounts match "{{ q }}".{% endblocktrans %}{% else %}{% trans "No accounts currently flagged as possible duplicates." %}{% endif %}
+        </p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "User" %}</th><th>{% trans "Possible Match" %}</th><th>{% trans "Reason (recorded at verification)" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for flagged_user in flagged_users %}
+                    <tr>
+                        <td><a href="{% url 'accounts:profile_view' flagged_user.username %}">{{ flagged_user.username }}</a></td>
+                        <td class="small">
+                            {% if flagged_user.linked_matches %}
+                                {% for match in flagged_user.linked_matches %}
+                                <div>
+                                    <a href="{% url 'accounts:profile_view' match.user.username %}">{{ match.user.username }}</a>
+                                    <span class="badge {% if match.severity == 'high' %}bg-danger{% else %}bg-secondary{% endif %}">{{ match.severity }}</span>
+                                    <span class="text-muted">- {{ match.reason }}</span>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">{% trans "No longer matches (signals may have changed since flagging)" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small text-muted">{{ flagged_user.duplicate_flag_reason }}</td>
+                        <td class="text-nowrap">
+                            <form method="post" action="{% url 'adminpanel:clear_duplicate_flag' flagged_user.pk %}" class="d-inline-flex align-items-center gap-1">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:130px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">{% trans "Clear Flag" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if flagged_users.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if flagged_users.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&flagged_page={{ flagged_users.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ flagged_users.number }} / {{ flagged_users.paginator.num_pages }}</span></li>
+                {% if flagged_users.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&flagged_page={{ flagged_users.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_disputes %}
+<!-- Buyer disputes -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-exclamation"></i> {% trans "Buyer Disputes" %}</span>
+        <span class="badge bg-{% if stats.escalated_dispute_count %}danger{% else %}secondary{% endif %}">{{ stats.escalated_dispute_count }}</span>
+    </div>
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="small text-muted">{% if stats.escalated_dispute_count %}{% blocktrans trimmed count counter=stats.escalated_dispute_count %}{{ counter }} escalated dispute waiting on a decision.{% plural %}{{ counter }} escalated disputes waiting on a decision.{% endblocktrans %}{% else %}{% trans "No escalated disputes waiting." %}{% endif %}</span>
+        <a href="{% url 'disputes:staff_queue' %}" class="btn btn-sm btn-outline-primary">{% trans "Open dispute queue" %}</a>
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_disputes %}
+<!-- Returns -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-arrow-return-left"></i> {% trans "Pending Returns" %}</span>
+        <span class="badge bg-info text-dark">{{ stats.pending_return_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if not pending_returns %}
+        <p class="text-muted small p-3 mb-0">{% trans "No return requests waiting on a decision." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "Order" %}</th><th>{% trans "Buyer" %}</th><th>{% trans "Reason" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for rr in pending_returns %}
+                    <tr>
+                        <td>{{ rr.order.book.title }}</td>
+                        <td>{{ rr.order.buyer.username }}</td>
+                        <td class="small text-muted">{{ rr.get_reason_display }}</td>
+                        <td>
+                            <a href="/admin/orders/returnrequest/{{ rr.pk }}/change/" class="btn btn-sm btn-outline-primary">
+                                {% trans "Review &amp; Refund" %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted p-2 mb-0">{% blocktrans trimmed %}Refunds involve real money (Razorpay/wallet) - handled in Django admin so the existing refund actions are the single source of truth. See <code>orders/admin.py:ReturnRequestAdmin</code>.{% endblocktrans %}</p>
+        {% if pending_returns.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if pending_returns.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&returns_page={{ pending_returns.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ pending_returns.number }} / {{ pending_returns.paginator.num_pages }}</span></li>
+                {% if pending_returns.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&returns_page={{ pending_returns.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_partners %}
+<!-- Shopkeeper Partner applications -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shop"></i> {% trans "Pending Partner Applications" %}</span>
+        <span class="badge bg-danger">{{ stats.pending_partner_count }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if not pending_partners %}
+        <p class="text-muted small p-3 mb-0">{% trans "No Shopkeeper Partner applications waiting on review." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "Shop" %}</th><th>{% trans "Applicant" %}</th><th>{% trans "City" %}</th><th>{% trans "Phone" %}</th><th>GSTIN</th><th>{% trans "ID / Shop Proof" %}</th><th>{% trans "Commission" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for partner in pending_partners %}
+                    <tr>
+                        <td>{{ partner.shop_name }}</td>
+                        <td><a href="{% url 'accounts:profile_view' partner.user.username %}">{{ partner.user.username }}</a></td>
+                        <td class="small text-muted">{{ partner.shop_city }} - {{ partner.shop_pincode }}</td>
+                        <td class="small">{{ partner.contact_phone }}</td>
+                        <td class="small text-muted">{{ partner.gstin|default:"-" }}</td>
+                        <td class="small">
+                            <a href="{% url 'partners:proof_file' partner.pk 'id' %}" target="_blank" rel="noopener">{% trans "ID" %}</a> &middot;
+                            <a href="{% url 'partners:proof_file' partner.pk 'shop' %}" target="_blank" rel="noopener">{% trans "Shop" %}</a>
+                            <div class="text-muted">{% blocktrans trimmed with last4=partner.owner_aadhaar_last4 %}Aadhaar ****{{ last4 }}{% endblocktrans %}</div>
+                        </td>
+                        <td class="small">{{ partner.commission_percent }}%</td>
+                        <td class="text-nowrap">
+                            <form method="post" action="{% url 'adminpanel:approve_partner' partner.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success">{% trans "Approve" %}</button>
+                            </form>
+                            <form method="post" action="{% url 'adminpanel:reject_partner' partner.pk %}" class="d-inline-flex align-items-center gap-1">
+                                {% csrf_token %}
+                                <input type="text" name="reason" class="form-control form-control-sm" style="width:150px;" placeholder="{% trans 'Reason (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{% trans "Reject" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if pending_partners.has_other_pages %}
+        <nav class="p-2">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                {% if pending_partners.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&partners_page={{ pending_partners.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ pending_partners.number }} / {{ pending_partners.paginator.num_pages }}</span></li>
+                {% if pending_partners.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&partners_page={{ pending_partners.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% if perms.adminpanel.cap_audit %}
+<!-- Recent staff activity - the AuditLog read-back; see AuditLog's own
+     docstring and adminpanel/views.py:RECENT_ACTIVITY_LIMIT. -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history"></i> {% trans "Recent Staff Activity" %}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if not recent_activity %}
+        <p class="text-muted small p-3 mb-0">{% trans "No staff actions recorded yet." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>{% trans "When" %}</th><th>{% trans "Staff Member" %}</th><th>{% trans "Action" %}</th><th>{% trans "Target" %}</th><th>{% trans "Note" %}</th></tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_activity %}
+                    <tr>
+                        <td class="small text-muted text-nowrap">{{ log.created_at|naturaltime }}</td>
+                        <td>{{ log.actor.username|default:deleted_label }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ log.get_action_display }}</span></td>
+                        <td class="small">{{ log.target_repr }}</td>
+                        <td class="small text-muted">{{ log.note|default:"-"|truncatechars:80 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted p-2 mb-0">{% blocktrans trimmed with n=recent_activity|length %}Showing the last {{ n }} actions. Full history: <a href="/admin/adminpanel/auditlog/">Django admin &rarr; Audit Logs</a>.{% endblocktrans %}</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+
+{% endblock %}

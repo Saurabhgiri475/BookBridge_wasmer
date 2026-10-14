@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4 text-center">
+            <h5>{% trans "Complete your payment" %}</h5>
+            <p class="text-muted mb-1">{{ order.book.title }}</p>
+            <h3 class="fw-bold mb-3">₹{{ order.total_amount }}</h3>
+            <p class="small text-muted">
+                {% trans "Payment is held securely until you confirm delivery of your book." %}
+            </p>
+
+            {% if razorpay_key_id %}
+            <button id="rzp-pay-btn" class="btn btn-warning text-dark fw-semibold btn-lg">
+                {% blocktrans trimmed with amount=order.total_amount %}Pay ₹{{ amount }}{% endblocktrans %}
+            </button>
+            <a href="{% url 'orders:detail' order.order_id %}" class="btn btn-link btn-sm mt-2">{% trans "Cancel" %}</a>
+            {% else %}
+            <div class="alert alert-warning small text-start">
+                {% blocktrans trimmed %}Razorpay isn't configured on this server yet (missing <code>RAZORPAY_KEY_ID</code> / <code>RAZORPAY_KEY_SECRET</code>). Add them to your <code>.env</code> - see <code>.env.example</code> - then reload this page.{% endblocktrans %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if razorpay_key_id %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<form id="rzp-callback-form" method="post" action="{% url 'orders:payment_callback' order.order_id %}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="razorpay_payment_id" id="id_razorpay_payment_id">
+    <input type="hidden" name="razorpay_order_id" id="id_razorpay_order_id">
+    <input type="hidden" name="razorpay_signature" id="id_razorpay_signature">
+</form>
+<script nonce="{{ csp_nonce }}">
+document.getElementById('rzp-pay-btn').addEventListener('click', function () {
+    var options = {
+        key: '{{ razorpay_key_id }}',
+        amount: '{{ amount_paise }}',
+        currency: 'INR',
+        name: 'BookBridge',
+        description: '{% blocktrans trimmed with title=order.book.title|escapejs %}Order for {{ title }}{% endblocktrans %}',
+        order_id: '{{ payment.razorpay_order_id }}',
+        prefill: {
+            name: '{{ buyer_name|escapejs }}',
+            email: '{{ buyer_email|escapejs }}',
+            contact: '{{ buyer_phone|escapejs }}'
+        },
+        theme: { color: '#ffc107' },
+        handler: function (response) {
+            document.getElementById('id_razorpay_payment_id').value = response.razorpay_payment_id;
+            document.getElementById('id_razorpay_order_id').value = response.razorpay_order_id;
+            document.getElementById('id_razorpay_signature').value = response.razorpay_signature;
+            document.getElementById('rzp-callback-form').submit();
+        },
+        modal: {
+            ondismiss: function () {
+                window.location.href = "{% url 'orders:detail' order.order_id %}";
+            }
+        }
+    };
+    var rzp = new Razorpay(options);
+    rzp.open();
+});
+</script>
+{% endif %}
+{% endblock %}

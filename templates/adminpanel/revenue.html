@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Revenue Dashboard" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-cash-coin"></i> {% trans "Revenue Dashboard" %}</h4>
+    <a href="{% url 'adminpanel:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> {% trans "Staff Dashboard" %}
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center"><div class="stat-value">₹{{ gmv|floatformat:0|intcomma }}</div><div class="text-muted small">{% trans "GMV (delivered)" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center"><div class="stat-value">₹{{ commission|floatformat:0|intcomma }}</div><div class="text-muted small">{% trans "Marketplace Commission" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center"><div class="stat-value">{{ order_count|intcomma }}</div><div class="text-muted small">{% trans "Delivered Orders" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center"><div class="stat-value">{% if avg_commission_per_order is not None %}₹{{ avg_commission_per_order|intcomma }}{% else %}-{% endif %}</div><div class="text-muted small">{% trans "Avg Commission / Order" %}</div></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center border-warning"><div class="stat-value">₹{{ partner_commission_due|floatformat:0|intcomma }}</div><div class="text-muted small">{% trans "Partner Buyback Commission - Due" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card text-center border-success"><div class="stat-value">₹{{ partner_commission_settled|floatformat:0|intcomma }}</div><div class="text-muted small">{% trans "Partner Buyback Commission - Settled" %}</div></div>
+    </div>
+</div>
+<p class="small text-muted mb-4">
+    {% blocktrans trimmed %}"Partner Buyback Commission" is the 10% Shopkeeper Partners owe BookBridge on books they buy directly from sellers (see the Partners app) - a separate revenue stream from marketplace order commission above. Partners settle it themselves from their Partner Dashboard, which debits their BookBridge Wallet.{% endblocktrans %}
+</p>
+
+<div class="card p-3 mb-4">
+    <h6>{% trans "GMV &amp; Commission - Last 12 Months" %}</h6>
+    <canvas id="revenueChart" height="220"></canvas>
+</div>
+
+<div class="card p-3">
+    <h6>{% trans "Top Sellers (by delivered revenue)" %}</h6>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>#</th><th>{% trans "Seller" %}</th><th>{% trans "Revenue" %}</th><th>{% trans "Commission Earned" %}</th><th>{% trans "Delivered Orders" %}</th></tr></thead>
+            <tbody>
+                {% for seller in top_sellers %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ seller.book__seller__username }}</td>
+                    <td>₹{{ seller.revenue|floatformat:0|intcomma }}</td>
+                    <td>₹{{ seller.commission|floatformat:0|intcomma }}</td>
+                    <td>{{ seller.order_count }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted small">{% trans "No delivered orders yet." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ chart_data_json|json_script:"revenue-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% trans "GMV (₹)" as t_gmv %}{% trans "Commission (₹)" as t_comm %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const data = JSON.parse(document.getElementById('revenue-data').textContent);
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: '{{ t_gmv|escapejs }}',
+                    data: data.gmv,
+                    backgroundColor: 'rgba(13,110,253,0.6)',
+                    yAxisID: 'y',
+                },
+                {
+                    type: 'line',
+                    label: '{{ t_comm|escapejs }}',
+                    data: data.commission,
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25,135,84,0.15)',
+                    tension: 0.3,
+                    yAxisID: 'y',
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: { y: { beginAtZero: true } },
+        },
+    });
+})();
+</script>
+{% endblock %}

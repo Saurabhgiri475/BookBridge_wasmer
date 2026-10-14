@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ dispute.reference }} - {% trans "Staff" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-10">
+<a class="small" href="{% url 'disputes:staff_queue' %}">&larr; {% trans "All disputes" %}</a>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-2">
+    <h4 class="mb-0">{{ dispute.reference }} &middot; {{ dispute.book_title }}</h4>
+    {% include 'disputes/_status_badge.html' with dispute=dispute %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6"><div class="card p-3 small h-100">
+        <div><strong>{% trans "Buyer" %}:</strong> {{ dispute.buyer.username }} ({{ dispute.buyer.email }})</div>
+        <div><strong>{% trans "Seller" %}:</strong> {{ dispute.seller.username }} ({{ dispute.seller.email }})</div>
+        <div><strong>{% trans "Problem" %}:</strong> {{ dispute.get_category_display }}</div>
+        <div><strong>{% trans "Buyer wants" %}:</strong> {{ dispute.get_desired_resolution_display }}{% if dispute.requested_amount %} - ₹{{ dispute.requested_amount }}{% endif %}</div>
+        <div><strong>{% trans "Opened" %}:</strong> {{ dispute.created_at|date:"d M Y, H:i" }}{% if dispute.escalated_at %} &middot; <strong>{% trans "escalated" %}</strong> {{ dispute.escalated_at|date:"d M Y, H:i" }}{% endif %}</div>
+        {% if dispute.seller_agreed %}<div class="mt-1"><span class="badge bg-success">{% trans "Seller agreed to refund" %}</span></div>{% endif %}
+        {% if dispute.auto_escalated %}<div class="mt-1"><span class="badge bg-secondary">{% trans "Seller never replied" %}</span></div>{% endif %}
+    </div></div>
+    <div class="col-md-6"><div class="card p-3 small h-100">
+        {% if order %}
+        <div><strong>{% trans "Order" %}:</strong> #{{ dispute.order_ref }} &middot; {{ order.get_status_display }} &middot; {{ order.get_order_type_display }}{% if order.delivered_at %} &middot; {% blocktrans trimmed with date=order.delivered_at|date:"d M Y" %}delivered {{ date }}{% endblocktrans %}{% endif %}</div>
+        <div><strong>{% trans "Buyer paid" %}:</strong> {% if order.coupon_discount %}{% blocktrans trimmed with total=order.total_amount book=order.final_price delivery=order.delivery_charge coupon=order.coupon_discount method=order.get_payment_method_display %}₹{{ total }} (book ₹{{ book }} + delivery ₹{{ delivery }} - coupon ₹{{ coupon }}) via {{ method }}{% endblocktrans %}{% else %}{% blocktrans trimmed with total=order.total_amount book=order.final_price delivery=order.delivery_charge method=order.get_payment_method_display %}₹{{ total }} (book ₹{{ book }} + delivery ₹{{ delivery }}) via {{ method }}{% endblocktrans %}{% endif %}</div>
+        <div><strong>{% trans "Payment" %}:</strong> {% if payment %}{{ payment.get_status_display }}{% else %}{% trans "none" %}{% endif %}</div>
+        <div><strong>{% trans "Seller payout" %}:</strong> {% if payout %}₹{{ payout.net_amount }} &middot; {{ payout.get_status_display }}{% if payout.refunded_after_payout %} &middot; <span class="text-danger">{% trans "to recover" %}</span>{% endif %}{% else %}{% trans "not created yet" %}{% endif %}{% if dispute.payout_held %} <span class="text-muted">{% trans "(held by this dispute)" %}</span>{% endif %}</div>
+        {% if return_request %}<div><strong>{% trans "Return request" %}:</strong> {{ return_request.get_reason_display }} &middot; {{ return_request.get_status_display }}</div>{% endif %}
+        {% else %}<div class="text-muted">{% trans "The order was deleted." %}</div>{% endif %}
+    </div></div>
+</div>
+
+{% if dispute.status == 'resolved' or dispute.status == 'withdrawn' %}
+<div class="alert alert-{% if dispute.status == 'withdrawn' %}secondary{% else %}success{% endif %}">
+    {% if dispute.status == 'withdrawn' %}{% trans "Withdrawn by the buyer." %}{% else %}
+    <div class="fw-semibold">{{ dispute.get_outcome_display }}{% if dispute.outcome == 'refund' %} &mdash; {% blocktrans trimmed with amount=dispute.refund_amount destination=dispute.get_refund_destination_display ref=dispute.refund_reference|default:"-" %}₹{{ amount }} to the {{ destination }} (ref {{ ref }}){% endblocktrans %}{% if dispute.deducted_from_seller %}, {% trans "deducted from seller" %}{% endif %}{% endif %}</div>
+    <div class="small" style="white-space:pre-wrap;">{{ dispute.resolution_note }}</div>
+    <div class="small text-muted">{% blocktrans trimmed with name=dispute.resolved_by.username|default:"-" date=dispute.resolved_at|date:"d M Y, H:i" %}By {{ name }} on {{ date }}{% endblocktrans %}</div>{% endif %}
+</div>
+{% endif %}
+
+<h6>{% trans "Conversation" %} <span class="text-muted small">({% trans "includes staff-only notes" %})</span></h6>
+{% include 'disputes/_thread.html' with viewer='staff' %}
+
+{% if dispute.is_active %}
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <form method="post" action="{% url 'disputes:staff_message' dispute.pk %}" enctype="multipart/form-data" class="card p-3 h-100">
+            {% csrf_token %}
+            <h6>{% trans "Message both parties" %}</h6>
+            {{ message_form.body }}
+            <div class="mt-2">{{ message_form.evidence }}</div>
+            <div class="mt-2"><button class="btn btn-primary btn-sm">{% trans "Send" %}</button></div>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <form method="post" action="{% url 'disputes:staff_note' dispute.pk %}" class="card p-3 h-100 border-warning">
+            {% csrf_token %}
+            <h6>{% trans "Internal note" %} <span class="text-muted small">({% trans "staff only" %})</span></h6>
+            <textarea name="body" rows="3" class="form-control" maxlength="2000" required></textarea>
+            <div class="mt-2"><button class="btn btn-outline-warning text-dark btn-sm">{% trans "Save note" %}</button></div>
+        </form>
+    </div>
+</div>
+
+<form method="post" action="{% url 'disputes:staff_resolve' dispute.pk %}" class="card p-3 mt-3 border-primary" id="resolveForm"
+      data-confirm="{% trans 'Resolve this dispute? Any refund is issued immediately and cannot be undone.' %}">
+    {% csrf_token %}
+    <h6>{% trans "Resolve" %}</h6>
+    {% if not buyer_paid %}<div class="alert alert-warning py-2 small">{% trans "The buyer has not paid for this order (e.g. COD that was never delivered) - a refund can't be issued. Choose replacement or decline." %}</div>{% endif %}
+    <div class="row g-3">
+        <div class="col-md-4"><label class="form-label small fw-semibold" for="id_outcome">{% trans "Outcome" %}</label>{{ resolve_form.outcome }}</div>
+        <div class="col-md-4 refundOnly"><label class="form-label small fw-semibold" for="id_refund_amount">{% blocktrans trimmed with max=max_refund %}Refund (₹) &mdash; max {{ max }}{% endblocktrans %}</label>{{ resolve_form.refund_amount }}</div>
+        <div class="col-md-4 refundOnly"><label class="form-label small fw-semibold" for="id_destination">{% trans "Refund to" %}</label>{{ resolve_form.destination }}
+            {% if not can_pay_online %}<div class="form-text">{% trans "No online payment on file - use the wallet." %}</div>{% endif %}</div>
+        <div class="col-12 refundOnly">
+            <div class="form-check"><input type="checkbox" class="form-check-input" name="deduct_from_seller" id="id_deduct_from_seller" checked>
+            <label class="form-check-label small" for="id_deduct_from_seller">{{ resolve_form.deduct_from_seller.label }}</label></div>
+            <div class="form-text">{% blocktrans trimmed with price=order.final_price %}Only applies to a partial refund (less than the book price ₹{{ price }}). A refund of the full book price cancels the seller's payout instead.{% endblocktrans %}</div>
+        </div>
+        <div class="col-12"><label class="form-label small fw-semibold" for="id_note">{{ resolve_form.note.label }}</label>{{ resolve_form.note }}</div>
+    </div>
+    <div class="mt-3"><button class="btn btn-primary">{% trans "Resolve dispute" %}</button></div>
+</form>
+{% endif %}
+</div></div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('#resolveForm select, #resolveForm textarea, #resolveForm input[type=number], textarea, input[type=file]').forEach(function (el) {
+    el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control');
+});
+(function () {
+    var outcome = document.getElementById('id_outcome');
+    if (!outcome) return;
+    function sync() { document.querySelectorAll('.refundOnly').forEach(function (n) { n.style.display = outcome.value === 'refund' ? '' : 'none'; }); }
+    outcome.addEventListener('change', sync); sync();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Verify your email" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-6 col-lg-5">
+<div class="card p-4">
+    <div class="text-center mb-3">
+        <div class="display-6 text-warning"><i class="bi bi-envelope-check"></i></div>
+        <h4 class="mb-1">{% trans "Verify your email" %}</h4>
+        <p class="text-muted small mb-0">
+            {% blocktrans trimmed %}We sent a 6-digit code to <strong>{{ masked_email }}</strong>. It expires in {{ validity_minutes }} minutes.{% endblocktrans %}
+        </p>
+    </div>
+
+    <form method="post" autocomplete="off">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="verify">
+        <div class="mb-3">
+            <label class="form-label" for="otpInput">{% trans "Verification code" %}</label>
+            <input type="text" name="otp" id="otpInput" class="form-control form-control-lg text-center"
+                   inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6"
+                   autocomplete="one-time-code" placeholder="------" required autofocus
+                   style="letter-spacing: .5em;">
+        </div>
+        <button class="btn btn-warning text-dark fw-semibold w-100">{% trans "Verify &amp; activate account" %}</button>
+    </form>
+
+    <hr>
+    <div class="d-flex justify-content-between align-items-center small">
+        <form method="post" class="m-0">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="resend">
+            <button class="btn btn-link btn-sm p-0" {% if not can_resend %}title="{% trans "You can request a new code once a minute" %}"{% endif %}>{% trans "Resend code" %}</button>
+        </form>
+        <form method="post" class="m-0" data-confirm="{% trans "Discard this signup and start over with a different email?" %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="cancel">
+            <button class="btn btn-link btn-sm p-0 text-muted">{% trans "Wrong email? Start over" %}</button>
+        </form>
+    </div>
+    <div class="text-muted small mt-2">{% trans "Can't find it? Check your spam folder." %}</div>
+</div>
+</div>
+</div>
+{% endblock %}

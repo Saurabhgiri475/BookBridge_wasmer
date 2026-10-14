@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Two-factor authentication" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-7 col-lg-5">
+<div class="card p-4">
+    <h4 class="mb-2"><i class="bi bi-shield-check text-success"></i> {% trans "Two-factor authentication is on" %}</h4>
+    <p class="text-muted small">{% blocktrans trimmed with date=device.confirmed_at|date:"j M Y" count counter=remaining %}Active since {{ date }}. You have <strong>{{ counter }}</strong> unused recovery code.{% plural %}Active since {{ date }}. You have <strong>{{ counter }}</strong> unused recovery codes.{% endblocktrans %}</p>
+    <form method="post" autocomplete="off" data-confirm="{% trans 'This replaces all your current recovery codes. Continue?' %}">
+        {% csrf_token %}
+        <label class="form-label" for="codeInput">{% trans "Authenticator code (to generate new recovery codes)" %}</label>
+        <input type="text" name="code" id="codeInput" class="form-control text-center mb-3" inputmode="numeric" maxlength="7"
+               autocomplete="one-time-code" placeholder="------" required>
+        <button class="btn btn-outline-dark w-100">{% trans "Generate new recovery codes" %}</button>
+    </form>
+    <p class="text-muted small mt-3 mb-0">{% blocktrans trimmed with username=request.user.username %}Lost your phone and your codes? A server admin can run <code>manage.py reset_staff_2fa {{ username }}</code>.{% endblocktrans %}</p>
+</div>
+</div>
+</div>
+{% endblock %}

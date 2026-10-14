@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Shop Settings" %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-shop"></i> {{ partner.shop_name }}</h4>
+<p class="text-muted small">{% trans "Control which leads you see and how the Offer Assistant prices them." %}</p>
+{% include 'partners/_tabs.html' with active='settings' %}
+<div class="row"><div class="col-lg-7">
+<form method="post" class="card p-3">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-check form-switch mb-1">
+        {{ form.is_accepting_requests }}
+        <label class="form-check-label fw-semibold" for="{{ form.is_accepting_requests.id_for_label }}">{{ form.is_accepting_requests.label }}</label>
+    </div>
+    <div class="form-text mb-3">{{ form.is_accepting_requests.help_text }}</div>
+
+    <div class="row g-2">
+        <div class="col-md-6"><label class="form-label small">{{ form.default_radius_km.label }}</label>{{ form.default_radius_km }}{{ form.default_radius_km.errors }}
+            <div class="form-text">{% trans "Also the radius used for new-lead alerts." %}</div></div>
+        <div class="col-md-6"><label class="form-label small">{{ form.target_margin_percent.label }}</label>{{ form.target_margin_percent }}{{ form.target_margin_percent.errors }}
+            <div class="form-text">{% trans "Drives the Offer Assistant's suggested price." %}</div></div>
+    </div>
+    <hr>
+    <h6>{% trans "Shop details" %}</h6>
+    <label class="form-label small">{% trans "Contact Phone" %}</label>{{ form.contact_phone }}{{ form.contact_phone.errors }}
+    <label class="form-label small mt-2">{% trans "Shop Address" %}</label>{{ form.shop_address }}{{ form.shop_address.errors }}
+    <div class="row g-2 mt-1">
+        <div class="col-md-6"><label class="form-label small">{% trans "City" %}</label>{{ form.shop_city }}{{ form.shop_city.errors }}</div>
+        <div class="col-md-6"><label class="form-label small">{% trans "Pincode" %}</label>{{ form.shop_pincode }}{{ form.shop_pincode.errors }}</div>
+    </div>
+    {{ form.shop_latitude }}{{ form.shop_longitude }}
+    <div class="mt-2">
+        <button type="button" id="useLocationBtn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-geo-alt"></i> {% trans "Update pin from my current location" %}</button>
+        <span id="locationStatus" class="small text-muted ms-2">{% if partner.shop_latitude %}{% trans "Pin saved." %}{% else %}{% trans "No pin yet - add one to get distance-based leads." %}{% endif %}</span>
+    </div>
+    <button type="submit" class="btn btn-warning text-dark fw-semibold mt-3 align-self-start">{% trans "Save Settings" %}</button>
+</form>
+</div></div>
+{% trans "Location not supported by this browser." as t_unsup %}{% trans "Getting your location..." as t_getting %}{% trans "Location captured - save to apply." as t_captured %}{% trans "Could not get your location." as t_failed %}
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('form input[type=text], form input[type=number], form select').forEach(el => el.classList.add(el.tagName === 'SELECT' ? 'form-select' : 'form-control'));
+document.querySelectorAll('form input[type=checkbox]').forEach(el => el.classList.add('form-check-input'));
+document.getElementById('useLocationBtn').addEventListener('click', function () {
+    const status = document.getElementById('locationStatus');
+    if (!navigator.geolocation) { status.textContent = '{{ t_unsup|escapejs }}'; return; }
+    status.textContent = '{{ t_getting|escapejs }}';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('id_shop_latitude').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('id_shop_longitude').value = pos.coords.longitude.toFixed(6);
+        status.textContent = '{{ t_captured|escapejs }}';
+    }, function () { status.textContent = '{{ t_failed|escapejs }}'; });
+});
+</script>
+{% endblock %}

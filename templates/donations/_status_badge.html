@@ -1,0 +1,5 @@
+{% if status == 'received' %}<span class="badge bg-success">{{ label }}</span>
+{% elif status == 'accepted' %}<span class="badge bg-primary">{{ label }}</span>
+{% elif status == 'submitted' %}<span class="badge bg-warning text-dark">{{ label }}</span>
+{% elif status == 'rejected' %}<span class="badge bg-danger">{{ label }}</span>
+{% else %}<span class="badge bg-secondary">{{ label }}</span>{% endif %}

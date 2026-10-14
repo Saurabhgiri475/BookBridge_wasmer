@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ shop.shop_name }} - {% trans "BookBridge Partner" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+    <div class="card p-4 mb-3">
+        <h4 class="mb-1"><i class="bi bi-shop"></i> {{ shop.shop_name }}</h4>
+        <p class="text-muted mb-2">{{ shop.shop_city }} &middot; {% blocktrans trimmed with date=shop.reviewed_at|default:shop.applied_at|date:"M Y" %}BookBridge Partner since {{ date }}{% endblocktrans %}</p>
+        {% include 'partners/_badges.html' with rep=reputation %}
+        <div class="row g-2 mt-3 text-center">
+            <div class="col-4"><div class="stat-card"><div class="stat-value">{{ reputation.stats.completed }}</div><div class="small text-muted">{% trans "Buybacks completed" %}</div></div></div>
+            <div class="col-4"><div class="stat-card"><div class="stat-value">{% if reputation.stats.rating %}{{ reputation.stats.rating }}{% else %}-{% endif %}</div><div class="small text-muted">{% trans "Average rating" %}</div></div></div>
+            <div class="col-4"><div class="stat-card"><div class="stat-value">{{ reputation.stats.review_count }}</div><div class="small text-muted">{% trans "Reviews" %}</div></div></div>
+        </div>
+        <div class="small text-muted mt-3">
+            {% if reputation.badges %}{% trans "Badges are earned automatically from real activity:" %}
+            {% for b in reputation.badges %}<strong>{{ b.name }}</strong> - {{ b.description|lower }}{% if not forloop.last %}; {% endif %}{% endfor %}.
+            {% else %}{% trans "Badges are earned automatically from completed buybacks, response time and seller ratings." %}{% endif %}
+        </div>
+        {% if is_owner and reputation.hints %}
+        <div class="alert alert-light border small mt-3 mb-0"><strong>{% trans "Next up" %}:</strong> {{ reputation.hints|join:" · " }}</div>
+        {% endif %}
+    </div>
+
+    <h5>{% trans "Recent reviews" %}</h5>
+    {% for r in reviews %}
+    <div class="card p-3 mb-2">
+        <div><span class="text-warning">{% for i in "12345" %}{% if forloop.counter <= r.rating %}<i class="bi bi-star-fill"></i>{% else %}<i class="bi bi-star"></i>{% endif %}{% endfor %}</span>
+            <span class="small text-muted ms-2">{{ r.reviewer_label }} &middot; {{ r.created_at|date:"d M Y" }}</span></div>
+        {% if r.comment %}<div class="small mt-1">{{ r.comment }}</div>{% endif %}
+    </div>
+    {% empty %}
+    <p class="text-muted small">{% trans "No reviews yet." %}</p>
+    {% endfor %}
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Partner Application Status" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card p-4 text-center">
+            <h4><i class="bi bi-shop"></i> {{ partner.shop_name }}</h4>
+            {% if partner.status == 'pending' %}
+                <div class="display-5 text-success"><i class="bi bi-check-circle-fill"></i></div>
+                <h5 class="text-success mb-2">{% trans "Your application form has been submitted!" %}</h5>
+                <span class="badge bg-warning text-dark mb-2">{% trans "Pending Review" %}</span>
+                <p class="text-muted">{% trans "Your application is with our team. We'll let you know as soon as it's reviewed." %}</p>
+                {% if partner.id_number_hint %}<p class="small text-muted mb-2">{% blocktrans trimmed with hint=partner.id_number_hint %}ID on file: {{ hint }}{% endblocktrans %}</p>{% endif %}
+                <p class="small text-muted mb-2">{% trans "Spotted a mistake, or a photo came out blurry? You can fix it while the application is still pending." %}</p>
+                <a href="{% url 'partners:apply' %}?edit=1" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i> {% trans "Edit details or replace documents" %}</a>
+            {% elif partner.status == 'approved' %}
+                <span class="badge bg-success mb-2">{% trans "Approved" %}</span>
+                <p class="text-muted">{% trans "You're an approved BookBridge Partner." %}</p>
+                <a href="{% url 'partners:dashboard' %}" class="btn btn-warning text-dark fw-semibold">{% trans "Go to Partner Dashboard" %}</a>
+            {% elif partner.status == 'rejected' %}
+                <span class="badge bg-danger mb-2">{% trans "Rejected" %}</span>
+                {% if partner.rejection_reason %}<p class="text-muted">{% blocktrans trimmed with reason=partner.rejection_reason %}Reason: {{ reason }}{% endblocktrans %}</p>{% endif %}
+                <p class="small text-muted">{% trans "You can correct your details or documents and apply again." %}</p>
+                <a href="{% url 'partners:apply' %}?reapply=1" class="btn btn-warning text-dark fw-semibold">{% trans "Fix and re-apply" %}</a>
+            {% elif partner.status == 'suspended' %}
+                <span class="badge bg-secondary mb-2">{% trans "Suspended" %}</span>
+                <p class="text-muted">{% trans "Your partner account is currently suspended. Contact support for details." %}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

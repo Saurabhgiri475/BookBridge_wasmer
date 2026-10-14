@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-5">
+<div class="card p-4">
+    <h4 class="mb-3">{% trans "Login to BookBridge" %}</h4>
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+        <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <button class="btn btn-warning text-dark fw-semibold w-100">{% trans "Login" %}</button>
+    </form>
+    <div class="text-center mt-3 small"><a href="{% url 'accounts:password_reset' %}">{% trans "Forgot your password?" %}</a></div>
+    <div class="text-center mt-2 small">{% trans "New here?" %} <a href="{% url 'accounts:signup' %}">{% trans "Create an account" %}</a></div>
+    <div class="text-center mt-3 small text-muted"><i class="bi bi-headset"></i> {% blocktrans trimmed with phone_url="tel:"|add:support_phone_tel phone=support_phone_display email=support_email %}Trouble logging in? Call <a href="{{ phone_url }}">{{ phone }}</a> or email <a class="text-break" href="mailto:{{ email }}?subject=BookBridge%20login%20help">{{ email }}</a>{% endblocktrans %}</div>
+    <div class="card border-success mt-3">
+        <div class="card-body py-2 small text-center">
+            <i class="bi bi-shop"></i> <strong>{% trans "Run a bookshop?" %}</strong><br>
+            {% trans "New to BookBridge?" %} <a href="{% url 'accounts:signup' %}?partner=1">{% trans "Sign up as a Partner" %}</a>.<br>
+            {% blocktrans trimmed %}Already have an account? Log in, then choose <em>Become a Partner</em> from your account menu.{% endblocktrans %}
+        </div>
+    </div>
+</div>
+</div>
+</div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('input:not([type=hidden])').forEach(el => el.classList.add('form-control'));
+</script>
+<script src="{% static 'js/auth-ui.js' %}"></script>
+{% endblock %}

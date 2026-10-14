@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block title %}{% trans "My disputes" %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-flag"></i> {% trans "My disputes" %}</h4>
+
+<h6>{% trans "Disputes I opened" %}</h6>
+{% for d in bought %}
+<a class="card p-3 mb-2 text-decoration-none text-reset" href="{% url 'disputes:detail' d.pk %}">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div><span class="fw-semibold">{{ d.book_title }}</span> <span class="text-muted small">{{ d.reference }} &middot; {{ d.get_category_display }}</span>
+            <div class="small text-muted">{% blocktrans trimmed with date=d.created_at|date:"d M Y" name=d.seller|public_name %}Opened {{ date }} &middot; seller {{ name }}{% endblocktrans %}{% if d.outcome == 'refund' %} &middot; {% blocktrans trimmed with amount=d.refund_amount %}₹{{ amount }} refunded{% endblocktrans %}{% endif %}</div></div>
+        {% include 'disputes/_status_badge.html' with dispute=d %}
+    </div>
+</a>
+{% empty %}<p class="text-muted small">{% trans "You haven't opened any disputes. You can report a problem from any shipped order's page." %}</p>{% endfor %}
+
+<h6 class="mt-4">{% trans "Disputes against my listings" %}</h6>
+{% for d in against %}
+<a class="card p-3 mb-2 text-decoration-none text-reset" href="{% url 'disputes:detail' d.pk %}">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div><span class="fw-semibold">{{ d.book_title }}</span> <span class="text-muted small">{{ d.reference }} &middot; {{ d.get_category_display }}</span>
+            <div class="small text-muted">{% blocktrans trimmed with date=d.created_at|date:"d M Y" name=d.buyer|public_name %}Opened {{ date }} by {{ name }}{% endblocktrans %}{% if d.status == 'open' %} &middot; {% blocktrans trimmed with date=d.seller_response_due|date:"d M" %}reply by {{ date }}{% endblocktrans %}{% endif %}</div></div>
+        {% include 'disputes/_status_badge.html' with dispute=d %}
+    </div>
+</a>
+{% empty %}<p class="text-muted small">{% trans "No disputes against your listings." %}</p>{% endfor %}
+{% endblock %}

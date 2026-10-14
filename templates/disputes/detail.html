@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block title %}{% blocktrans trimmed with ref=dispute.reference %}Dispute {{ ref }}{% endblocktrans %} - BookBridge{% endblock %}
+{% block content %}
+{% trans "Withdraw this dispute? You won't be able to reopen it." as t_withdraw %}
+<div class="row justify-content-center"><div class="col-lg-9">
+<a class="small" href="{% url 'disputes:mine' %}">&larr; {% trans "My disputes" %}</a>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 my-2">
+    <h4 class="mb-0">{{ dispute.reference }} &middot; {{ dispute.book_title }}</h4>
+    {% include 'disputes/_status_badge.html' with dispute=dispute %}
+</div>
+
+<div class="card p-3 mb-3 small">
+    <div><strong>{% trans "Problem" %}:</strong> {{ dispute.get_category_display }} &middot; <strong>{% trans "Wanted" %}:</strong> {{ dispute.get_desired_resolution_display }}{% if dispute.requested_amount %} (₹{{ dispute.requested_amount }}){% endif %}</div>
+    <div><strong>{% trans "Buyer" %}:</strong> {% if request.user.is_staff %}{{ dispute.buyer.username }}{% else %}{{ dispute.buyer|public_name }}{% endif %} &middot; <strong>{% trans "Seller" %}:</strong> {% if request.user.is_staff %}{{ dispute.seller.username }}{% else %}{{ dispute.seller|public_name }}{% endif %}{% if dispute.order %} &middot; <a href="{% url 'orders:detail' dispute.order.order_id %}">{% blocktrans trimmed with id=dispute.order_ref %}Order #{{ id }}{% endblocktrans %}</a>{% endif %}</div>
+    {% if dispute.status == 'open' %}<div class="text-muted">{% blocktrans trimmed with date=dispute.seller_response_due|date:"d M Y, H:i" %}The seller has until {{ date }} to reply.{% endblocktrans %}{% if is_seller %} {% trans "Your payout for this order is on hold until the dispute is settled." %}{% endif %}</div>{% endif %}
+</div>
+
+{% if dispute.status == 'resolved' %}
+<div class="alert alert-{% if dispute.outcome == 'rejected' %}secondary{% else %}success{% endif %}">
+    <div class="fw-semibold">{{ dispute.get_outcome_display }}{% if dispute.outcome == 'refund' %} &mdash; {% blocktrans trimmed with amount=dispute.refund_amount destination=dispute.get_refund_destination_display %}₹{{ amount }} to the {{ destination }}{% endblocktrans %}{% endif %}</div>
+    <div class="small" style="white-space:pre-wrap;">{{ dispute.resolution_note }}</div>
+</div>
+{% endif %}
+
+<h6>{% trans "Conversation" %}</h6>
+{% include 'disputes/_thread.html' with viewer=is_buyer|yesno:"buyer,seller" %}
+
+{% if can_reply %}
+<form method="post" action="{% url 'disputes:message' dispute.pk %}" enctype="multipart/form-data" class="card p-3 mt-3">
+    {% csrf_token %}
+    <div class="mb-2"><label class="form-label small fw-semibold" for="id_body">{{ message_form.body.label }}</label>{{ message_form.body }}</div>
+    <div class="mb-2"><label class="form-label small" for="id_evidence">{{ message_form.evidence.label }}</label>{{ message_form.evidence }}</div>
+    <div><button class="btn btn-primary btn-sm">{% trans "Send reply" %}</button></div>
+</form>
+
+<div class="d-flex flex-wrap gap-2 mt-3">
+    {% if is_seller and dispute.status != 'escalated' %}
+    <form method="post" action="{% url 'disputes:seller_agree' dispute.pk %}" data-confirm="{% trans 'Agree the buyer should be refunded? BookBridge will issue the refund and it may be taken from your payout.' %}">
+        {% csrf_token %}<button class="btn btn-outline-success btn-sm">{% trans "I agree - refund the buyer" %}</button>
+    </form>
+    {% endif %}
+    {% if is_buyer and dispute.buyer_can_escalate %}
+    <form method="post" action="{% url 'disputes:escalate' dispute.pk %}" class="d-flex gap-2">
+        {% csrf_token %}<input type="text" name="reason" class="form-control form-control-sm" maxlength="500" placeholder="{% trans 'Why? (optional)' %}" style="min-width:220px;">
+        <button class="btn btn-outline-danger btn-sm text-nowrap">{% trans "Escalate to BookBridge" %}</button>
+    </form>
+    {% elif is_buyer and dispute.status == 'open' %}
+    <span class="small text-muted align-self-center">{% blocktrans trimmed with date=dispute.seller_response_due|date:"d M" %}You can escalate after the seller replies or on {{ date }}.{% endblocktrans %}</span>
+    {% endif %}
+    {% if is_buyer %}
+    <form method="post" action="{% url 'disputes:withdraw' dispute.pk %}" data-confirm="{{ t_withdraw }}">
+        {% csrf_token %}<button class="btn btn-link btn-sm text-muted">{% trans "Withdraw dispute" %}</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+</div></div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('textarea, input[type=file]').forEach(function (el) { el.classList.add('form-control'); });
+</script>
+{% endblock %}

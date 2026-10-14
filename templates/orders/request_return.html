@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<h4 class="mb-3">{% blocktrans trimmed with title=order.book.title %}Request a Return: {{ title }}{% endblocktrans %}</h4>
+<form method="post" class="card p-3" style="max-width:500px;">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="mb-2">
+        <label class="form-label small">{{ field.label }}</label>
+        {{ field }}
+    </div>
+    {% endfor %}
+    <button class="btn btn-warning text-dark fw-semibold">{% trans "Submit Return Request" %}</button>
+</form>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('input, select, textarea').forEach(el => el.classList.add('form-control'));
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Open a dispute" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7">
+<a class="small" href="{% url 'orders:detail' order.order_id %}">&larr; {% trans "Back to the order" %}</a>
+<h4 class="my-2">{% trans "Report a problem" %}</h4>
+<p class="text-muted small">{% blocktrans trimmed with id=order.order_id|stringformat:"s"|slice:":8" title=order.book.title amount=order.total_amount days=response_days %}Order #{{ id }} &middot; {{ title }} &middot; you paid ₹{{ amount }}. The seller gets {{ days }} days to reply; after that (or once they reply) you can escalate to the BookBridge team. Just want to send the book back? Use <em>Request Return</em> on the order page instead.{% endblocktrans %}</p>
+<form method="post" enctype="multipart/form-data" class="card p-3">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    {% for field in form %}
+    <div class="mb-3" id="row_{{ field.name }}">
+        <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+    </div>
+    {% endfor %}
+    <button class="btn btn-warning text-dark fw-semibold">{% trans "Open dispute" %}</button>
+</form>
+</div></div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('#row_category select, #row_desired_resolution select, #row_description textarea, #row_requested_amount input, #row_evidence input').forEach(function (el) { el.classList.add(el.type === 'file' ? 'form-control' : (el.tagName === 'SELECT' ? 'form-select' : 'form-control')); });
+(function () {
+    var wanted = document.getElementById('id_desired_resolution');
+    var row = document.getElementById('row_requested_amount');
+    function sync() { row.style.display = wanted.value === 'partial_refund' ? '' : 'none'; }
+    wanted.addEventListener('change', sync); sync();
+})();
+</script>
+{% endblock %}

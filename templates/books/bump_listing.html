@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% blocktrans trimmed with title=book.title %}Feature "{{ title }}"{% endblocktrans %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-star"></i> {% blocktrans trimmed with title=book.title %}Feature "{{ title }}"{% endblocktrans %}</h4>
+<p class="text-muted">{% trans "Featured listings show up in the Featured row on the homepage, ahead of the regular browse results." %}</p>
+<p class="small text-muted">{% blocktrans trimmed with balance=wallet.balance %}Wallet balance: ₹{{ balance }}{% endblocktrans %}</p>
+
+{% if book.is_currently_featured %}
+<div class="alert alert-warning py-2">
+    {% if book.featured_until %}{% blocktrans trimmed with date=book.featured_until|date:"d M Y" %}Already featured until {{ date }}{% endblocktrans %}{% else %}{% trans "Already featured" %}{% endif %} -
+    {% trans "buying another bump below adds on top of that instead of restarting the clock." %}
+</div>
+{% endif %}
+
+<form method="post" class="row g-3" style="max-width:600px;">
+    {% csrf_token %}
+    {% for days, price in options %}
+    <div class="col-12 col-md-4">
+        <label class="card p-3 text-center h-100" style="cursor:pointer;">
+            <input type="radio" name="days" value="{{ days }}" class="form-check-input d-none bump-radio" {% if forloop.first %}checked{% endif %}>
+            <div class="fw-semibold">{% blocktrans trimmed with days=days %}{{ days }} Days{% endblocktrans %}</div>
+            <div class="price-tag">₹{{ price }}</div>
+        </label>
+    </div>
+    {% endfor %}
+    <div class="col-12">
+        <button type="submit" class="btn btn-warning text-dark fw-semibold">{% trans "Feature This Listing" %}</button>
+    </div>
+</form>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.bump-radio').forEach(function (radio) {
+    radio.closest('label').addEventListener('click', function () {
+        document.querySelectorAll('.bump-radio').forEach(r => r.closest('label').classList.remove('border-warning'));
+        radio.checked = true;
+        radio.closest('label').classList.add('border-warning');
+    });
+});
+</script>
+{% endblock %}

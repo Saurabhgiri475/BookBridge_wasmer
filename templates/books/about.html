@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load humanize static i18n %}
+{% block title %}{% trans "About" %} - BookBridge{% endblock %}
+{% block content %}
+
+<!-- Hero -->
+<section class="about-hero">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <span class="about-eyebrow">{% trans "Student-to-student book marketplace" %}</span>
+            <h1 class="fw-bold mt-3">{% trans "Books that travel from one student to the next" %}</h1>
+            <p class="lead mb-4">{% trans "BookBridge is where students buy, sell and rent used academic books — CBSE, ICSE, competitive-exam and college textbooks, plus digital notes and question papers — at a fraction of the price of new." %}</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'books:list' %}" class="btn btn-warning btn-lg"><i class="bi bi-search"></i> {% trans "Browse books" %}</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'books:add' %}" class="btn btn-outline-light btn-lg"><i class="bi bi-plus-circle"></i> {% trans "Sell a book" %}</a>
+                {% else %}
+                <a href="{% url 'accounts:signup' %}" class="btn btn-outline-light btn-lg"><i class="bi bi-person-plus"></i> {% trans "Join free" %}</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <img class="about-hero-art" src="{% static 'img/about/hero.svg' %}" width="520" height="388"
+                 alt="{% trans 'Illustration: two stacks of books joined by a bridge, with a book crossing it and a small plant growing from one stack' as bb_alt %}{{ bb_alt|force_escape }}">
+        </div>
+    </div>
+</section>
+
+<!-- Live numbers -->
+<section class="mt-4">
+    <div class="row g-3">
+        <div class="col-6 col-md-3"><div class="about-stat"><i class="bi bi-book"></i><div class="num">{{ books_listed|intcomma }}</div><div class="text-muted small">{% trans "Books listed now" %}</div></div></div>
+        <div class="col-6 col-md-3"><div class="about-stat"><i class="bi bi-people"></i><div class="num">{{ total_users|intcomma }}</div><div class="text-muted small">{% trans "Members" %}</div></div></div>
+        <div class="col-6 col-md-3"><div class="about-stat"><i class="bi bi-box-seam"></i><div class="num">{{ orders_completed|intcomma }}</div><div class="text-muted small">{% trans "Orders delivered" %}</div></div></div>
+        <div class="col-6 col-md-3"><div class="about-stat"><i class="bi bi-shop"></i><div class="num">{{ partner_shops|intcomma }}</div><div class="text-muted small">{% trans "Partner bookshops" %}</div></div></div>
+    </div>
+    <p class="text-muted small text-center mt-2 mb-0">{% trans "These are live counts from BookBridge, not estimates." %}</p>
+</section>
+
+<!-- How it works -->
+<section class="about-section">
+    <h2 class="about-title h3">{% trans "How it works" %}</h2>
+    <p class="about-sub">{% trans "Two simple paths — whether you need a book or you're done with one." %}</p>
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <div class="about-lane">
+                <h5><i class="bi bi-cart-check text-warning"></i> {% trans "If you need a book" %}</h5>
+                <ol class="about-steps">
+                    <li>{% blocktrans trimmed %}<strong>Search or browse</strong> by title, author, ISBN, subject, board or university. Save a search or post a request and we'll tell you when it's listed.{% endblocktrans %}</li>
+                    <li>{% blocktrans trimmed %}<strong>Chat, offer, and buy or rent</strong> — ask the seller questions, make an offer, then pay by UPI, card, wallet or cash on delivery.{% endblocktrans %}</li>
+                    <li>{% blocktrans trimmed %}<strong>Track it and confirm</strong> — follow the courier, then enter the delivery OTP to confirm the book is in your hands.{% endblocktrans %}</li>
+                </ol>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="about-lane">
+                <h5><i class="bi bi-tag text-warning"></i> {% trans "If you have books to pass on" %}</h5>
+                <ol class="about-steps">
+                    <li>{% blocktrans trimmed %}<strong>List it in minutes</strong> — scan the cover, get an AI-suggested price, and let duplicate checks keep the catalogue clean.{% endblocktrans %}</li>
+                    <li>{% blocktrans trimmed %}<strong>Ship when it sells</strong> — accept the order and hand it to the courier; digital notes are delivered automatically.{% endblocktrans %}</li>
+                    <li>{% blocktrans trimmed %}<strong>Get paid by UPI</strong> — your payout is released once the buyer confirms delivery, and you can download a commission statement any time.{% endblocktrans %}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Mission -->
+<section class="about-section">
+    <div class="row align-items-center g-4">
+        <div class="col-md-5 text-center">
+            <img class="about-mission-art" src="{% static 'img/about/mission.svg' %}" width="400" height="320" loading="lazy"
+                 alt="{% trans 'Illustration: a green sprout growing from an open book' as bb_alt2 %}{{ bb_alt2|force_escape }}">
+        </div>
+        <div class="col-md-7">
+            <h2 class="about-title h3"><i class="bi bi-bullseye"></i> {% trans "What BookBridge is for" %}</h2>
+            <p class="text-muted">{% trans "Textbooks are expensive, and most are used for a single term before sitting on a shelf. BookBridge connects the student who's done with a book to the student who needs it next." %}</p>
+            <div class="about-principle"><div class="ico"><i class="bi bi-piggy-bank"></i></div><div><strong>{% trans "Affordable" %}</strong><div class="text-muted small">{% trans "Used books, rentals and digital notes cost far less than buying new." %}</div></div></div>
+            <div class="about-principle"><div class="ico"><i class="bi bi-recycle"></i></div><div><strong>{% trans "Reuse over reprint" %}</strong><div class="text-muted small">{% url 'books:sustainability' as sustainability_url %}{% blocktrans trimmed %}Every book that changes hands is one that didn't need printing. See the <a href="{{ sustainability_url }}">Sustainability Dashboard</a>.{% endblocktrans %}</div></div></div>
+            <div class="about-principle"><div class="ico"><i class="bi bi-gift"></i></div><div><strong>{% trans "Giving back" %}</strong><div class="text-muted small">{% trans "Donate books to partner organisations and receive a certificate." %} <a href="{% url 'donations:home' %}">{% trans "Donate books" %}</a>{% if books_donated %} &middot; {% blocktrans with n=books_donated|intcomma %}{{ n }} donated so far{% endblocktrans %}{% endif %}.</div></div></div>
+        </div>
+    </div>
+</section>
+
+<!-- What you can do -->
+<section class="about-section">
+    <h2 class="about-title h3"><i class="bi bi-stars"></i> {% trans "What you can do here" %}</h2>
+    <div class="row g-3 mt-1">
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-cart-check"></i></div><h6>{% trans "Buy or rent" %}</h6><p>{% trans "Used books by title, author, ISBN, subject or university." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-plus-circle"></i></div><h6>{% trans "Sell your books" %}</h6><p>{% trans "AI-assisted pricing, cover-photo scanning and duplicate-listing checks." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-file-earmark-text"></i></div><h6>{% trans "Digital notes" %}</h6><p>{% trans "PDF notes, handwritten notes, question papers and lab manuals." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-chat-dots"></i></div><h6>{% trans "Chat directly" %}</h6><p>{% trans "Talk to buyers and sellers before you commit." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-search-heart"></i></div><h6>{% trans "Never miss a book" %}</h6><p>{% trans "Save searches and post requests; get notified the moment it's listed." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-truck"></i></div><h6>{% trans "Real tracking" %}</h6><p>{% trans "Courier tracking with an OTP to confirm every handoff." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-wallet2"></i></div><h6>{% trans "BookBridge Wallet" %}</h6><p>{% trans "Cashback, referral rewards and instant refunds in one wallet." %}</p></div></div>
+        <div class="col-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-bell"></i></div><h6>{% trans "Stay in the loop" %}</h6><p>{% trans "Email, push, SMS, WhatsApp or in-app — your choice." %}</p></div></div>
+    </div>
+</section>
+
+{% if categories %}
+<!-- Categories -->
+<section class="about-section">
+    <h2 class="about-title h3"><i class="bi bi-collection"></i> {% trans "Find your subject" %}</h2>
+    <p class="about-sub">{% trans "Categories with books available right now." %}</p>
+    <div class="d-flex flex-wrap gap-2 mt-2">
+        {% for c in categories %}
+        <a class="category-pill text-decoration-none" href="{% url 'books:list' %}?category={{ c.pk }}">{{ c.name }} <span class="text-muted small">{{ c.n }}</span></a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Trust -->
+<section class="about-section">
+    <h2 class="about-title h3"><i class="bi bi-shield-check"></i> {% trans "Shop with confidence" %}</h2>
+    <div class="row g-3 mt-1">
+        <div class="col-md-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-patch-check"></i></div><h6>{% trans "Verified sellers" %}</h6><p>{% trans "Sellers verify their email and automatic fraud checks screen listings." %}</p></div></div>
+        <div class="col-md-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-lock"></i></div><h6>{% trans "Money held until delivery" %}</h6><p>{% trans "Online payments are held and only released to the seller after you confirm delivery with your OTP." %}</p></div></div>
+        <div class="col-md-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-flag"></i></div><h6>{% trans "Dispute centre" %}</h6><p>{% trans "If something's wrong, open a dispute and BookBridge steps in with a refund, replacement or decision." %}</p></div></div>
+        <div class="col-md-6 col-lg-3"><div class="about-tile"><div class="ico"><i class="bi bi-headset"></i></div><h6>{% trans "Real people to call" %}</h6><p>{% url 'books:contact' as contact_url %}{% blocktrans trimmed with tel=support_phone_tel phone=support_phone_display %}Stuck? Call <a href="tel:{{ tel }}">{{ phone }}</a> or email us — see <a href="{{ contact_url }}">Contact us</a>.{% endblocktrans %}</p></div></div>
+    </div>
+</section>
+
+<!-- Impact -->
+<section class="about-section">
+    <div class="about-impact">
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+            <div>
+                <h2 class="h3 fw-bold mb-1"><i class="bi bi-tree"></i> {% trans "Our impact" %}</h2>
+                <div class="small opacity-75">{% trans "Estimated from books reused through delivered orders and verified donations." %}</div>
+            </div>
+            <a href="{% url 'books:sustainability' %}" class="small">{% trans "How we calculate this" %} &rarr;</a>
+        </div>
+        {% if impact.books_reused %}
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md-3"><div class="num">{{ impact.books_reused|intcomma }}</div><div class="lbl">{% trans "books reused" %}</div></div>
+            <div class="col-6 col-md-3"><div class="num">{{ impact.trees_saved|floatformat:1|intcomma }}</div><div class="lbl">{% trans "trees saved" %}</div></div>
+            <div class="col-6 col-md-3"><div class="num">{{ impact.water_saved_litres|floatformat:0|intcomma }} L</div><div class="lbl">{% trans "water saved" %}</div></div>
+            <div class="col-6 col-md-3"><div class="num">{{ impact.co2_saved_kg|floatformat:0|intcomma }} kg</div><div class="lbl">{% trans "CO₂ avoided" %}</div></div>
+        </div>
+        {% else %}
+        <p class="mb-0">{% trans "The counter starts with the first delivered order. Every book you buy or pass on here is one that doesn't have to be printed." %}</p>
+        {% endif %}
+    </div>
+</section>
+
+<!-- FAQ -->
+<section class="about-section about-faq">
+    <h2 class="about-title h3"><i class="bi bi-question-circle"></i> {% trans "Common questions" %}</h2>
+    <div class="accordion mt-3" id="aboutFaq">
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1" aria-expanded="false" aria-controls="faq1">{% trans "How do I pay, and is my money safe?" %}</button></h3>
+            <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% trans "Pay by UPI, card, your BookBridge Wallet, or cash on delivery for physical books. Online payments are held by BookBridge and released to the seller only after you confirm delivery with the OTP sent to you." %}</div></div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2" aria-expanded="false" aria-controls="faq2">{% trans "What if my book never arrives or isn't as described?" %}</button></h3>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% blocktrans trimmed with nr=not_received_days dw=dispute_window_days sr=seller_reply_days %}Open a dispute from the order page. You can report a book as not received {{ nr }} days after placing the order, and raise any other problem within {{ dw }} days of delivery. The seller gets {{ sr }} days to reply; after that, or once they reply, you can escalate to the BookBridge team, who can refund you or arrange a replacement. You can also use <em>Request Return</em> on a delivered order.{% endblocktrans %}</div></div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3" aria-expanded="false" aria-controls="faq3">{% trans "How do I sell my books, and when do I get paid?" %}</button></h3>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% trans "Create an account, verify it, and list a book — you can scan the cover and get a suggested price. Add your UPI ID on the Payouts page; once the buyer confirms delivery, your payout (the sale price minus BookBridge's commission, shown on every order) is sent to that UPI ID." %}</div></div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4" aria-expanded="false" aria-controls="faq4">{% trans "Can I rent books or buy digital notes?" %}</button></h3>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% trans "Yes. Sellers can offer rentals on physical books for set durations, and digital listings (PDF notes, question papers, lab manuals) are delivered to you right after payment." %}</div></div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5" aria-expanded="false" aria-controls="faq5">{% trans "Can I donate books?" %}</button></h3>
+            <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% url 'donations:home' as donate_url %}{% blocktrans trimmed %}Yes — <a href="{{ donate_url }}">donate books</a> to a partner organisation and receive a certificate once they've been received.{% endblocktrans %}</div></div>
+        </div>
+        <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6" aria-expanded="false" aria-controls="faq6">{% trans "I forgot my password, or I'm stuck — who can help?" %}</button></h3>
+            <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#aboutFaq"><div class="accordion-body">{% url 'accounts:password_reset' as reset_url %}{% blocktrans trimmed with tel=support_phone_tel phone=support_phone_display email=support_email %}<a href="{{ reset_url }}">Reset your password by email</a>. For anything else, call <a href="tel:{{ tel }}">{{ phone }}</a> or email <a href="mailto:{{ email }}">{{ email }}</a>.{% endblocktrans %}</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- Final call to action -->
+<section class="about-section">
+    <div class="about-cta">
+        <h2 class="fw-bold h3">{% trans "Ready to give a book its next reader?" %}</h2>
+        <p class="mb-3 opacity-75">{% trans "Browse what's available, or list the books you've finished with." %}</p>
+        <div class="d-flex flex-wrap justify-content-center gap-2">
+            <a href="{% url 'books:list' %}" class="btn btn-warning btn-lg">{% trans "Browse books" %}</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'books:add' %}" class="btn btn-outline-light btn-lg">{% trans "Sell a book" %}</a>
+            {% else %}
+            <a href="{% url 'accounts:signup' %}" class="btn btn-outline-light btn-lg">{% trans "Create a free account" %}</a>
+            {% endif %}
+        </div>
+        <p class="small mt-3 mb-0 opacity-75">{% trans "Questions?" %} <a class="contact-link" href="tel:{{ support_phone_tel }}">{{ support_phone_display }}</a> &middot; <a class="contact-link text-break" href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+    </div>
+</section>
+
+{% endblock %}

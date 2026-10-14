@@ -1,0 +1,29 @@
+{% load static i18n %}{% get_current_language as LANGUAGE_CODE %}<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1f3a5f">
+    <title>{% trans "You're offline" %} - BookBridge</title>
+    <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+    <style>
+        *{box-sizing:border-box}
+        body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+             background:#1f3a5f;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center;padding:24px}
+        .card{max-width:420px}
+        img{width:96px;height:96px;border-radius:20px;margin-bottom:16px}
+        h1{font-size:1.6rem;margin:0 0 8px}
+        p{color:#d6e0ee;line-height:1.5;margin:0 0 20px}
+        button{background:#f2a71b;color:#1f3a5f;border:0;border-radius:10px;padding:12px 22px;font-size:1rem;font-weight:600;cursor:pointer}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <img src="{% static 'img/icons/icon-192.png' %}" alt="BookBridge">
+        <h1>{% trans "You're offline" %}</h1>
+        <p>{% trans "BookBridge needs an internet connection to show listings, orders and chats. Check your connection and try again." %}</p>
+        <button id="retry" type="button">{% trans "Try again" %}</button>
+    </div>
+    <script src="{% static 'js/offline.js' %}"></script>
+</body>
+</html>

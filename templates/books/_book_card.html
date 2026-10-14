@@ -1,0 +1,43 @@
+{% load static i18n %}
+<div class="col-6 col-md-4 col-lg-3">
+    <a href="{% url 'books:detail' book.pk %}" class="text-decoration-none text-dark">
+        <div class="card book-card">
+            <div class="book-img-wrap">
+                {% if book.main_image %}
+                    <img src="{{ book.main_image }}" alt="{{ book.title }}">
+                {% else %}
+                    <i class="bi bi-book placeholder-icon"></i>
+                {% endif %}
+                {% if book.seller.is_seller_verified %}
+                    <span class="badge bg-success position-absolute top-0 start-0 m-1" title="{% trans 'Verified Seller' as bb_v %}{{ bb_v|force_escape }}"><i class="bi bi-patch-check-fill"></i></span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if book.is_digital %}
+                    <span class="badge bg-info text-dark mb-1"><i class="bi bi-file-earmark-pdf"></i> {{ book.get_digital_type_display }}</span>
+                {% else %}
+                    <span class="badge badge-condition mb-1">{{ book.get_condition_display }}</span>
+                {% endif %}
+                {% if book.is_currently_featured %}<span class="badge bg-warning text-dark mb-1">{% trans "Featured" %}</span>{% endif %}
+                {% if book.can_be_rented %}<span class="badge bg-success mb-1"><i class="bi bi-arrow-repeat"></i> {% trans "Rentable" %}</span>{% endif %}
+                <h6 class="card-title mb-1 text-truncate">{{ book.title }}</h6>
+                <div class="small text-muted text-truncate">{% if book.author %}{{ book.author }}{% else %}{% trans "Unknown author" %}{% endif %}</div>
+                <div class="mt-2">
+                    <span class="price-tag">₹{{ book.price }}</span>
+                    {% if book.original_price %}
+                        <span class="original-price ms-1">₹{{ book.original_price }}</span>
+                    {% endif %}
+                </div>
+                {% if book.is_digital %}
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-cloud-arrow-down"></i> {% trans "Instant download" %}
+                </div>
+                {% else %}
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-geo-alt"></i> {% if book.pickup_city %}{{ book.pickup_city }}{% else %}{% trans "Location N/A" %}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </a>
+</div>

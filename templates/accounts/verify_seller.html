@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-8">
+
+<h4 class="mb-1">{% trans "Seller Verification" %}</h4>
+<p class="text-muted small mb-3">
+    {% trans "Verify your email to unlock selling on BookBridge." %}
+</p>
+
+{% if user.is_seller_verified %}
+<div class="alert alert-success d-flex align-items-center gap-2">
+    <i class="bi bi-patch-check-fill"></i>
+    <div><strong>{% trans "Verified Seller" %} ✔</strong> — {% trans "you're all set to list books for sale." %}</div>
+</div>
+{% endif %}
+
+<!-- Email OTP -->
+<div class="card p-3 mb-3">
+    <h6 class="d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-envelope-check"></i> {% trans "Email OTP" %}</span>
+        {% if user.email_verified %}
+            <span class="badge bg-success">{% trans "Verified" %} ✔</span>
+        {% else %}
+            <span class="badge bg-secondary">{% trans "Pending" %}</span>
+        {% endif %}
+    </h6>
+
+    {% if user.email_verified %}
+        <p class="small text-muted mb-0">{% blocktrans trimmed with email=user.email %}{{ email }} is verified.{% endblocktrans %}</p>
+    {% else %}
+        <p class="small text-muted">
+            {% blocktrans trimmed with email=user.email %}We'll send a 4-digit code to <strong>{{ email }}</strong>.{% endblocktrans %}
+        </p>
+        <form method="post" action="{% url 'accounts:send_email_otp' %}" class="mb-2">
+            {% csrf_token %}
+            <button class="btn btn-outline-dark btn-sm">{% trans "Send OTP" %}</button>
+        </form>
+
+        {% if email_otp_sent %}
+        <form method="post" action="{% url 'accounts:confirm_email_otp' %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-sm-6">
+                <label class="form-label small">{% trans "Enter OTP" %}</label>
+                {{ otp_form.otp }}
+            </div>
+            <div class="col-sm-auto">
+                <button class="btn btn-warning text-dark fw-semibold btn-sm">{% trans "Confirm" %}</button>
+            </div>
+        </form>
+        {% endif %}
+    {% endif %}
+</div>
+
+</div>
+</div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('.card input').forEach(el => el.classList.add('form-control'));
+</script>
+{% endblock %}

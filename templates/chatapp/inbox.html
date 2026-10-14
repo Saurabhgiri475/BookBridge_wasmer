@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block content %}
+<h4 class="mb-3">{% trans "Messages" %}</h4>
+{% for c in conversations %}
+<a href="{% url 'chatapp:conversation' c.pk %}" class="text-decoration-none text-dark">
+<div class="card p-3 mb-2">
+    <div class="d-flex justify-content-between">
+        <div>
+            <strong>{{ c.subject_title }}</strong>
+            {% if c.is_buyback %}<span class="badge bg-info text-dark ms-1">{% trans "Buyback" %}</span>{% endif %}
+            <div class="small text-muted">
+                {% if c.is_buyback %}
+                    {% if c.seller == user %}{% blocktrans trimmed with name=c.buyer|public_name %}Partner: {{ name }}{% endblocktrans %}{% else %}{% blocktrans trimmed with name=c.seller|public_name %}Seller: {{ name }}{% endblocktrans %}{% endif %}
+                {% else %}
+                    {% if c.buyer == user %}{% blocktrans trimmed with name=c.seller|public_name %}Seller: {{ name }}{% endblocktrans %}{% else %}{% blocktrans trimmed with name=c.buyer|public_name %}Buyer: {{ name }}{% endblocktrans %}{% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</a>
+{% empty %}<p class="text-muted">{% trans "No conversations yet." %}</p>{% endfor %}
+{% endblock %}

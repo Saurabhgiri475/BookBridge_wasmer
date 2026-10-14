@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% load humanize %}
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <i class="bi bi-person-circle" style="font-size:5rem;color:#c3ccd6;"></i>
+            <h5 class="mt-2">
+                {{ profile_user|public_name }}
+                {% if profile_user.is_seller_verified %}
+                    <span class="badge bg-success" title="{% trans 'Email verified' %}">{% trans "Verified Seller" %} ✔</span>
+                {% endif %}
+            </h5>
+            <div class="text-muted small">{{ profile_user.city }}</div>
+            {% if seller_rating %}<div class="small text-warning">★ {% blocktrans trimmed with rating=seller_rating %}Seller rating: {{ rating }}{% endblocktrans %}</div>{% endif %}
+            {% if buyer_rating %}<div class="small text-warning">★ {% blocktrans trimmed with rating=buyer_rating %}Buyer rating: {{ rating }}{% endblocktrans %}</div>{% endif %}
+            {% if is_owner %}
+                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-outline-primary mt-2">{% trans "Edit Profile" %}</a>
+                {% if not profile_user.is_seller_verified %}
+                    <a href="{% url 'accounts:verify_seller' %}" class="btn btn-sm btn-outline-warning mt-2">{% trans "Get Verified" %}</a>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="card p-3 mt-3">
+            <h6 class="mb-3"><i class="bi bi-tree-fill text-success"></i> {% if is_owner %}{% trans "Your Impact" %}{% else %}{% blocktrans trimmed with name=profile_user|public_name %}{{ name }}'s Impact{% endblocktrans %}{% endif %}</h6>
+            <div class="row g-2 text-center">
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ books_bought }}</div><div class="small text-muted">{% trans "Books Bought" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ books_sold }}</div><div class="small text-muted">{% trans "Books Sold" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ books_donated }}</div><div class="small text-muted">{% trans "Books Donated" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ impact.trees_saved|floatformat:2 }}</div><div class="small text-muted">{% trans "Trees Saved" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ impact.paper_saved_kg|floatformat:1|intcomma }} kg</div><div class="small text-muted">{% trans "Paper Saved" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ impact.water_saved_litres|floatformat:0|intcomma }} L</div><div class="small text-muted">{% trans "Water Saved" %}</div></div>
+                </div>
+                <div class="col-6">
+                    <div class="stat-card"><div class="stat-value">{{ impact.co2_saved_kg|floatformat:0|intcomma }} kg</div><div class="small text-muted">{% trans "CO&#8322; Saved" %}</div></div>
+                </div>
+            </div>
+            <a href="{% url 'books:sustainability' %}" class="small mt-2 d-block">{% trans "See how these are calculated &rarr;" %}</a>
+            {% if is_owner %}<a href="{% url 'donations:mine' %}" class="small mt-1 d-block">{% trans "My donations &amp; certificates &rarr;" %}</a>{% endif %}
+        </div>
+
+        <div class="card p-3 mt-3">
+            <h6 class="mb-3"><i class="bi bi-award-fill text-warning"></i> {% trans "Badges &amp; Achievements" %}</h6>
+            {% if earned_badges %}
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    {% for badge in earned_badges %}
+                        <span class="badge bg-light text-dark border p-2" title="{{ badge.description }}">
+                            {{ badge.emoji }} {{ badge.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small mb-2">{% trans "No badges yet — buy or sell your first book to start earning them!" %}</p>
+            {% endif %}
+            {% if next_badge %}
+                <div class="small text-muted">
+                    {% blocktrans trimmed with emoji=next_badge.emoji name=next_badge.name count counter=next_badge.books_to_go %}Next up: {{ emoji }} <strong>{{ name }}</strong> ({{ counter }} more book to go){% plural %}Next up: {{ emoji }} <strong>{{ name }}</strong> ({{ counter }} more books to go){% endblocktrans %}
+                </div>
+            {% else %}
+                <div class="small text-success">🎉 {% trans "All badges unlocked!" %}</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-8">
+        <h6>{% blocktrans trimmed with name=profile_user|public_name %}Listings by {{ name }}{% endblocktrans %}</h6>
+        <div class="row g-3 mb-4">
+            {% for book in books %}{% include 'books/_book_card.html' %}
+            {% empty %}<p class="text-muted">{% trans "No active listings." %}</p>{% endfor %}
+        </div>
+        <h6>{% trans "Recent Reviews" %}</h6>
+        {% for r in reviews %}
+        <div class="border rounded p-2 mb-2">
+            <div class="small text-warning">★ {{ r.seller_rating }}/5</div>
+            <div class="small">{{ r.comment }}</div>
+        </div>
+        {% empty %}<p class="text-muted small">{% trans "No reviews yet." %}</p>{% endfor %}
+    </div>
+</div>
+{% endblock %}

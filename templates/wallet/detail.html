@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "My Wallet" %} - BookBridge{% endblock %}
+{% block content %}
+
+<div class="hero mb-4">
+    <div class="row align-items-center">
+        <div class="col-lg-8">
+            <h1 class="fw-bold"><i class="bi bi-wallet2"></i> {% trans "My Wallet" %}</h1>
+            <p class="lead mb-0">{% trans "Refunds, cashback, and referral bonuses land here - use the balance to pay for your next order." %}</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card text-center h-100 d-flex flex-column justify-content-center">
+            <div class="text-muted small mb-1">{% trans "Available Balance" %}</div>
+            <div class="stat-value" style="font-size:2.4rem;">₹{{ wallet.balance|intcomma }}</div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card p-3 h-100">
+            <h6 class="mb-2"><i class="bi bi-people-fill text-primary"></i> {% trans "Refer friends, earn wallet credit" %}</h6>
+            <p class="small text-muted mb-2">
+                {% blocktrans trimmed with signup=referral_signup_bonus reward=referral_reward %}Share your referral link. Your friend gets ₹{{ signup }} the moment they sign up, and you get ₹{{ reward }} once their first order is delivered.{% endblocktrans %}
+            </p>
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <input type="text" id="referralLinkInput" class="form-control form-control-sm" style="max-width:380px;" value="{{ referral_link }}" readonly>
+                <button type="button" id="copyReferralBtn" class="btn btn-sm btn-outline-primary"><i class="bi bi-clipboard"></i> {% trans "Copy" %}</button>
+                <span class="small text-muted">{% blocktrans trimmed with code=request.user.referral_code %}Your code: <strong>{{ code }}</strong>{% endblocktrans %}</span>
+            </div>
+            <div class="small text-muted mt-2">{% blocktrans trimmed count counter=referrals_count %}{{ counter }} friend signed up with your link so far.{% plural %}{{ counter }} friends signed up with your link so far.{% endblocktrans %}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h6 class="mb-3">{% trans "Transaction History" %}</h6>
+        {% if page_obj %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr class="text-muted small">
+                        <th>{% trans "Date" %}</th>
+                        <th>{% trans "Description" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th class="text-end">{% trans "Amount" %}</th>
+                        <th class="text-end">{% trans "Balance After" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in page_obj %}
+                    <tr>
+                        <td class="small text-muted">{{ txn.created_at|date:"d M Y, H:i" }}</td>
+                        <td class="small">
+                            {{ txn.description|default:txn.get_source_display }}
+                            {% if txn.order %}<a href="{% url 'orders:detail' txn.order.order_id %}" class="ms-1">({% trans "view order" %})</a>{% endif %}
+                        </td>
+                        <td>
+                            {% if txn.txn_type == 'credit' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">{{ txn.get_source_display }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border">{{ txn.get_source_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end {% if txn.txn_type == 'credit' %}text-success{% else %}text-danger{% endif %} fw-semibold">
+                            {% if txn.txn_type == 'credit' %}+{% else %}-{% endif %}₹{{ txn.amount|intcomma }}
+                        </td>
+                        <td class="text-end small text-muted">₹{{ txn.balance_after|intcomma }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.has_other_pages %}
+        <ul class="pagination justify-content-center mt-2">
+            {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Prev" %}</a></li>
+            {% endif %}
+            <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+            {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a></li>
+            {% endif %}
+        </ul>
+        {% endif %}
+        {% else %}
+        <p class="text-muted small mb-0">{% trans "No wallet activity yet. Refunds, cashback on delivered orders, and referral bonuses will show up here." %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <a class="text-decoration-none d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#howWalletWorks" role="button" aria-expanded="false" aria-controls="howWalletWorks">
+            <span class="fw-semibold"><i class="bi bi-question-circle"></i> {% trans "How do I earn wallet balance?" %}</span>
+            <i class="bi bi-chevron-down"></i>
+        </a>
+        <div class="collapse mt-3" id="howWalletWorks">
+            <ul class="small text-muted mb-0">
+                <li>{% blocktrans trimmed %}<strong>Refunds:</strong> if a return is approved, BookBridge can credit the refund straight to your wallet instead of a bank refund - usually much faster.{% endblocktrans %}</li>
+                <li>{% blocktrans trimmed with percent=cashback_percent %}<strong>Cashback:</strong> {{ percent }}% of every order's value is credited automatically once you confirm delivery.{% endblocktrans %}</li>
+                <li>{% blocktrans trimmed with signup=referral_signup_bonus reward=referral_reward %}<strong>Referral bonus:</strong> ₹{{ signup }} for you when you sign up via a friend's link; ₹{{ reward }} for your friend once your first order is delivered.{% endblocktrans %}</li>
+                <li>{% blocktrans trimmed %}<strong>Spending it:</strong> choose "BookBridge Wallet" as your payment method at checkout to pay instantly from your balance - no card or UPI needed.{% endblocktrans %}</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% trans "Copy" as t_copy %}{% trans "Copied!" as t_copied %}
+<script nonce="{{ csp_nonce }}">
+document.getElementById('copyReferralBtn').addEventListener('click', function () {
+    const input = document.getElementById('referralLinkInput');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+        this.innerHTML = '<i class="bi bi-check2"></i> {{ t_copied|escapejs }}';
+        setTimeout(() => { this.innerHTML = '<i class="bi bi-clipboard"></i> {{ t_copy|escapejs }}'; }, 1500);
+    }).catch(() => {});
+});
+</script>
+{% endblock %}

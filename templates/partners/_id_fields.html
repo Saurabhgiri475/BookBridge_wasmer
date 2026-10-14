@@ -1,0 +1,58 @@
+{# Verification block shared by accounts/signup.html and partners/apply.html. Needs `form` (PartnerApplicationForm). #}
+{# Optional: `partner` (existing application, when editing/re-applying) to show the saved documents. #}
+{% load i18n %}
+<p class="small text-muted mb-1">{% trans "Verification - never shared publicly, only reviewed by BookBridge staff." %}</p>
+
+<label class="form-label small d-block">{% trans "Which ID number will you enter?" %}</label>
+<div class="mb-2" id="idTypeGroup">
+    {% for radio in form.id_type %}
+    <div class="form-check form-check-inline">
+        {{ radio.tag }}
+        <label class="form-check-label small" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="idBlockAadhaar">
+    <label class="form-label small" for="{{ form.owner_aadhaar_number.id_for_label }}">{% trans "Owner Aadhaar Number" %}</label>
+    {{ form.owner_aadhaar_number }}
+    {% if editing and partner.owner_aadhaar_last4 %}<div class="form-text small">{% blocktrans trimmed with last4=partner.owner_aadhaar_last4 %}On file: Aadhaar ending {{ last4 }}. Leave blank to keep it.{% endblocktrans %}</div>{% endif %}
+    {{ form.owner_aadhaar_number.errors }}
+</div>
+<div id="idBlockPan" class="d-none">
+    <label class="form-label small" for="{{ form.owner_pan_number.id_for_label }}">{% trans "Owner PAN" %}</label>
+    {{ form.owner_pan_number }}
+    {% if editing and partner.owner_pan_last4 %}<div class="form-text small">{% blocktrans trimmed with last4=partner.owner_pan_last4 %}On file: PAN ending {{ last4 }}. Leave blank to keep it.{% endblocktrans %}</div>{% endif %}
+    {{ form.owner_pan_number.errors }}
+</div>
+<div class="form-text small mt-1">{% trans "DigiLocker verification isn't available yet - enter your Aadhaar or PAN number and upload a clear photo of the ID." %}</div>
+
+<div class="alert alert-light border small mt-3 mb-2 py-2">
+    <i class="bi bi-camera"></i> <strong>{% trans "Photo tips:" %}</strong>
+    {% blocktrans trimmed %}JPG, PNG, WebP or HEIC (iPhone photos work - we convert them), up to 5&nbsp;MB. Put the document on a flat, well-lit surface, keep all four corners in frame, and make sure the text isn't blurred or covered by glare. Photos are re-saved without location data.{% endblocktrans %}
+</div>
+
+<label class="form-label small mt-1" for="{{ form.owner_id_proof.id_for_label }}">{% trans "Owner ID Proof (photo of the same ID)" %}</label>
+{{ form.owner_id_proof }}
+<div id="previewIdProof"{% if partner and partner.owner_id_proof %} data-saved-url="{% url 'partners:proof_file' partner.pk 'id' %}"{% endif %}></div>
+{{ form.owner_id_proof.errors }}
+
+<label class="form-label small mt-3" for="{{ form.shop_proof.id_for_label }}">{% trans "Shop Proof (shop front / license / GST certificate)" %}</label>
+{{ form.shop_proof }}
+<div id="previewShopProof"{% if partner and partner.shop_proof %} data-saved-url="{% url 'partners:proof_file' partner.pk 'shop' %}"{% endif %}></div>
+{{ form.shop_proof.errors }}
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+    var radios = document.querySelectorAll('#idTypeGroup input[type=radio]');
+    function sync() {
+        var type = 'aadhaar';
+        radios.forEach(function (r) { if (r.checked) type = r.value; });
+        document.getElementById('idBlockAadhaar').classList.toggle('d-none', type !== 'aadhaar');
+        document.getElementById('idBlockPan').classList.toggle('d-none', type !== 'pan');
+    }
+    if (!Array.prototype.some.call(radios, function (r) { return r.checked; }) && radios.length) radios[0].checked = true;
+    radios.forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+})();
+</script>

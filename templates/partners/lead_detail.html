@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ lead.title }} - {% trans "Lead" %}{% endblock %}
+{% block content %}
+<a href="{% url 'partners:dashboard' %}" class="small">&larr; {% trans "Back to leads" %}</a>
+<div class="row mt-2">
+<div class="col-lg-7">
+    <h4 class="mb-1">{{ lead.title }}</h4>
+    <p class="text-muted">{{ lead.author }}{% if lead.publisher %} &middot; {{ lead.publisher }}{% endif %}{% if lead.edition %} &middot; {% blocktrans trimmed with edition=lead.edition %}{{ edition }} ed.{% endblocktrans %}{% endif %}{% if lead.publication_year %} &middot; {{ lead.publication_year }}{% endif %}</p>
+
+    {% if lead.images.all %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        {% for img in lead.images.all %}
+        <a href="{% url 'partners:buyback_image' img.pk %}" target="_blank"><img src="{% url 'partners:buyback_image' img.pk %}" title="{{ img.get_angle_display }}" style="width:130px;height:130px;object-fit:cover;border-radius:8px;"></a>
+        {% endfor %}
+    </div>
+    {% else %}<p class="small text-muted">{% trans "The seller didn't upload photos." %}</p>{% endif %}
+
+    <div class="card p-3 mb-3">
+        <h6>{% trans "Book details" %}</h6>
+        <div class="row small g-1">
+            <div class="col-6"><strong>{% trans "Condition" %}:</strong> {{ lead.get_condition_display }}</div>
+            <div class="col-6"><strong>{% trans "Quantity" %}:</strong> {{ lead.quantity }}</div>
+            <div class="col-6"><strong>ISBN:</strong> {{ lead.isbn|default:"-" }}</div>
+            <div class="col-6"><strong>{% trans "Language" %}:</strong> {{ lead.language }}</div>
+            <div class="col-6"><strong>{% trans "Category" %}:</strong> {{ lead.category.name|default:"-" }}</div>
+            <div class="col-6"><strong>{% trans "MRP" %}:</strong> {% if lead.original_price %}₹{{ lead.original_price }}{% else %}-{% endif %}</div>
+            {% if lead.subject %}<div class="col-6"><strong>{% trans "Subject" %}:</strong> {{ lead.subject }}</div>{% endif %}
+            {% if lead.board %}<div class="col-6"><strong>{% trans "Board" %}:</strong> {{ lead.board }}</div>{% endif %}
+            {% if lead.university %}<div class="col-6"><strong>{% trans "University" %}:</strong> {{ lead.university }}</div>{% endif %}
+            {% if lead.branch %}<div class="col-6"><strong>{% trans "Branch" %}:</strong> {{ lead.branch }}</div>{% endif %}
+            {% if lead.semester %}<div class="col-6"><strong>{% trans "Semester" %}:</strong> {{ lead.semester }}</div>{% endif %}
+        </div>
+        {% if lead.description %}<p class="small mt-2 mb-0"><strong>{% trans "Seller's notes" %}:</strong> {{ lead.description }}</p>{% endif %}
+    </div>
+    <div class="card p-3 mb-3">
+        <h6>{% trans "Pickup" %}</h6>
+        <p class="small mb-1">{{ lead.pickup_address }}, {{ lead.pickup_city }} {{ lead.pickup_pincode }}</p>
+        {% if maps_url %}<a href="{{ maps_url }}" target="_blank" class="small"><i class="bi bi-geo-alt"></i> {% trans "Open in Google Maps" %}</a>{% endif %}
+    </div>
+</div>
+
+<div class="col-lg-5">
+    <div class="card p-3 mb-3">
+        <h6>{% trans "Seller's ask" %}</h6>
+        <div class="fs-4 fw-semibold">{% if lead.expected_price %}₹{{ lead.expected_price }}{% else %}<span class="text-muted fs-6">{% trans "Not specified" %}</span>{% endif %}</div>
+    </div>
+
+    <div class="card p-3 mb-3 border-success">
+        <h6><i class="bi bi-magic"></i> {% trans "Offer Assistant" %}</h6>
+        <p class="small text-muted mb-2">{% blocktrans trimmed with margin=partner.target_margin_percent commission=partner.commission_percent %}Works out the most you can pay and still keep your {{ margin }}% target margin after BookBridge's {{ commission }}% commission.{% endblocktrans %}</p>
+        <button type="button" id="suggestBtn" class="btn btn-sm btn-outline-success" data-url="{% url 'partners:offer_suggestion' lead.pk %}">{% trans "Suggest an offer" %}</button>
+        <div id="suggestResult" class="small mt-2"></div>
+    </div>
+
+    <a href="{% url 'chatapp:start_buyback' lead.pk %}" class="btn btn-sm btn-outline-dark mb-3"><i class="bi bi-chat-dots"></i> {% trans "Message seller" %}</a>
+
+    {% if lead.status == 'accepted' and lead.partner_id == partner.pk %}
+    {% include 'partners/_pickup_card.html' with b=lead is_seller=False %}
+    {% endif %}
+
+    {% if reserved_for_me %}
+    <div class="alert alert-warning small">
+        <i class="bi bi-stopwatch"></i> {% blocktrans trimmed with left=time_left %}<strong>Reserved for you - {{ left }} left.</strong> Make an offer before then, or it moves to the next partner nearby.{% endblocktrans %}
+        <form method="post" action="{% url 'partners:pass_lead' lead.pk %}" class="mt-2">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% trans "Pass on this lead" %}</button></form>
+    </div>
+    {% endif %}
+    {% if lead.status == 'pending' %}
+    <form method="post" action="{% url 'partners:make_offer' lead.pk %}" class="card p-3">
+        {% csrf_token %}
+        <h6>{% trans "Make an offer" %}</h6>
+        <label class="form-label small">{% trans "Your offer (₹)" %}</label>
+        <input type="number" step="0.01" min="1" name="offered_price" id="offerInput" class="form-control mb-2" required>
+        <label class="form-label small">{% trans "Note to seller (optional)" %}</label>
+        <input type="text" name="offer_note" class="form-control mb-2" placeholder="{% trans 'e.g. Can collect this evening' %}">
+        <button class="btn btn-warning text-dark fw-semibold">{% trans "Send Offer" %}</button>
+    </form>
+    {% else %}
+    <div class="alert alert-info small">{% blocktrans trimmed with price=lead.offered_price status=lead.get_status_display %}You've already offered ₹{{ price }} - status: {{ status }}.{% endblocktrans %}</div>
+    {% endif %}
+</div>
+</div>
+<form id="csrfHolder">{% csrf_token %}</form>
+{% trans "Working it out..." as t_work %}{% trans "Could not get a suggestion right now." as t_fail %}{% trans "Market price: <strong>₹{market}</strong> &middot; expected resale: <strong>₹{resale}</strong>" as t_line1 %}{% trans 'Suggested max offer: <strong class="text-success">₹{offer}</strong> &rarr; expected profit ≈ ₹{profit}' as t_line2 %}{% trans "Use ₹{price}" as t_use %}
+<script nonce="{{ csp_nonce }}">
+document.getElementById('suggestBtn').addEventListener('click', async function () {
+    const box = document.getElementById('suggestResult');
+    box.textContent = '{{ t_work|escapejs }}';
+    try {
+        const resp = await fetch(this.dataset.url, {method: 'POST', headers: {'X-CSRFToken': document.querySelector('#csrfHolder [name=csrfmiddlewaretoken]').value}});
+        const d = await resp.json();
+        if (d.error) { box.innerHTML = `<span class="text-danger">${bbEsc(d.error)}</span>`; return; }
+        box.innerHTML = `
+            <div>${"{{ t_line1|escapejs }}".replace('{market}', bbEsc(d.market_price)).replace('{resale}', bbEsc(d.expected_resale))}</div>
+            <div>${"{{ t_line2|escapejs }}".replace('{offer}', bbEsc(d.suggested_offer)).replace('{profit}', bbEsc(d.expected_profit))}</div>
+            ${d.note ? `<div class="text-muted">${bbEsc(d.note)}</div>` : ''}
+            <button type="button" class="btn btn-sm btn-success mt-1" id="useOffer">${"{{ t_use|escapejs }}".replace('{price}', bbEsc(d.suggested_offer))}</button>`;
+        document.getElementById('useOffer').addEventListener('click', () => { const i = document.getElementById('offerInput'); if (i) i.value = d.suggested_offer; });
+    } catch (e) { box.innerHTML = '<span class="text-danger">{{ t_fail|escapejs }}</span>'; }
+});
+</script>
+{% endblock %}

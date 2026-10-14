@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Partner Earnings" %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-shop"></i> {{ partner.shop_name }}</h4>
+<p class="text-muted small">{% blocktrans trimmed with percent=partner.commission_percent %}Commission owed to BookBridge ({{ percent }}% of what you pay sellers) and your buyback history.{% endblocktrans %}</p>
+{% include 'partners/_tabs.html' with active='earnings' %}
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value text-danger">₹{{ total_due }}</div><div class="text-muted small">{% trans "Commission Due" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ settled_total }}</div><div class="text-muted small">{% trans "Commission Settled" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ buyback_count }}</div><div class="text-muted small">{% trans "Buybacks Completed" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ buyback_spend }}</div><div class="text-muted small">{% trans "Total Paid to Sellers" %}</div></div></div>
+</div>
+
+<div class="d-flex gap-2 flex-wrap mb-3">
+    {% if total_due %}
+    <form method="post" action="{% url 'partners:settle_all' %}" data-confirm="{% blocktrans trimmed with amount=total_due %}Debit ₹{{ amount }} from your BookBridge wallet?{% endblocktrans %}">
+        {% csrf_token %}
+        <button class="btn btn-primary btn-sm">{% blocktrans trimmed with amount=total_due %}Settle all (₹{{ amount }}) from wallet{% endblocktrans %}</button>
+    </form>
+    <a href="{% url 'wallet:detail' %}" class="btn btn-outline-secondary btn-sm">{% trans "Top up wallet" %}</a>
+    {% endif %}
+    <a href="{% url 'partners:export_csv' %}" class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> {% trans "Export buybacks (CSV)" %}</a>
+</div>
+
+<form method="get" class="d-flex gap-2 flex-wrap align-items-center mb-3">
+    <span class="small text-muted">{% trans "Commission statement" %}:</span>
+    <select name="period" class="form-select form-select-sm" style="max-width:200px;">
+        {% for key, label in period_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-outline-danger btn-sm" formaction="{% url 'payouts:partner_statement_pdf' %}"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+    <button class="btn btn-outline-success btn-sm" formaction="{% url 'payouts:partner_statement_csv' %}"><i class="bi bi-filetype-csv"></i> CSV</button>
+</form>
+
+<div class="card mb-4">
+    <div class="card-header">{% trans "Commission ledger" %}</div>
+    {% if not commissions %}
+    <p class="text-muted small p-3 mb-0">{% trans "No commission yet - it is created each time you mark a buyback as paid." %}</p>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Paid to seller" %}</th><th>{% trans "Commission" %}</th><th>{% trans "Date" %}</th><th>{% trans "Status" %}</th></tr></thead>
+            <tbody>
+                {% for c in commissions %}
+                <tr>
+                    <td>{{ c.buyback_request.title }}</td>
+                    <td>₹{{ c.buyback_request.final_price }}</td>
+                    <td>₹{{ c.amount }}</td>
+                    <td class="small text-muted">{{ c.created_at|date:"d M Y" }}</td>
+                    <td>{% if c.is_settled %}<span class="badge bg-success">{% blocktrans trimmed with date=c.settled_at|date:"d M" %}Settled {{ date }}{% endblocktrans %}</span>{% else %}<span class="badge bg-danger">{% trans "Due" %}</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

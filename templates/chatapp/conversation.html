@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block content %}
+{% if convo.is_buyback %}
+<h5 class="mb-1">{% blocktrans trimmed with title=convo.buyback.title %}Buyback chat: "{{ title }}"{% endblocktrans %}</h5>
+<p class="small text-muted mb-3">
+    {% if user == convo.seller %}{% blocktrans trimmed with name=convo.buyer|public_name %}With partner {{ name }}{% endblocktrans %}{% else %}{% blocktrans trimmed with name=convo.seller|public_name %}With seller {{ name }}{% endblocktrans %}{% endif %}
+    &middot;
+    {% if user == convo.seller %}<a href="{% url 'partners:buyback_detail' convo.buyback.pk %}">{% trans "View request" %}</a>
+    {% else %}<a href="{% url 'partners:lead_detail' convo.buyback.pk %}">{% trans "View lead" %}</a>{% endif %}
+</p>
+{% else %}
+<h5 class="mb-3">{% blocktrans trimmed with title=convo.book.title %}Chat about "{{ title }}"{% endblocktrans %}</h5>
+{% endif %}
+<div class="card p-3 mb-3" style="height:400px; overflow-y:auto;" id="chatbox">
+    {% for m in messages %}
+        <div class="chat-bubble {% if m.sender == user %}mine{% else %}theirs{% endif %}">
+            {% if m.text %}<div>{{ m.text }}</div>{% endif %}
+            {% if m.image %}<img src="{% url 'chatapp:image' m.pk %}" style="max-width:150px;border-radius:8px;" class="mt-1">{% endif %}
+            {% if m.shared_location %}<div class="small"><i class="bi bi-geo-alt"></i> {{ m.shared_location }}</div>{% endif %}
+            <div class="small opacity-75">{{ m.created_at|date:"g:i A" }}</div>
+        </div>
+    {% empty %}
+        <p class="text-muted">{% trans "Say hello to get things started!" %}</p>
+    {% endfor %}
+</div>
+<form method="post" enctype="multipart/form-data" class="d-flex gap-2 flex-wrap">
+    {% csrf_token %}
+    <input class="form-control" name="text" placeholder="{% trans 'Type a message...' %}" style="flex:1;">
+    <input type="file" class="form-control" name="image" style="max-width:180px;">
+    <input class="form-control" name="location" placeholder="{% trans 'Share location (optional)' %}" style="max-width:200px;">
+    <button class="btn btn-warning text-dark fw-semibold">{% trans "Send" %}</button>
+</form>
+{% if convo.is_buyback %}<p class="small text-muted mt-2 mb-0"><i class="bi bi-shield-exclamation"></i> {% trans "Never share your pickup OTP in chat - give it in person, only when the partner collects the book and pays you." %}</p>{% endif %}
+<script nonce="{{ csp_nonce }}">
+var box = document.getElementById('chatbox'); box.scrollTop = box.scrollHeight;
+</script>
+{% endblock %}

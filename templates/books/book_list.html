@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-3 mb-3">
+        <div class="card p-3">
+            <h6 class="mb-3">{% trans "Filters" %}</h6>
+            <form method="get">
+                <input type="hidden" name="q" value="{{ query }}">
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "Type" %}</label>
+                    <select name="listing_type" class="form-select form-select-sm" id="listingTypeFilter">
+                        <option value="">{% trans "All (Physical + Digital)" %}</option>
+                        <option value="physical" {% if request.GET.listing_type == 'physical' %}selected{% endif %}>{% trans "Physical Books" %}</option>
+                        <option value="digital" {% if request.GET.listing_type == 'digital' %}selected{% endif %}>{% trans "Digital Books" %}</option>
+                    </select>
+                </div>
+                <div class="mb-2" id="digitalTypeWrap" {% if request.GET.listing_type != 'digital' %}style="display:none;"{% endif %}>
+                    <label class="form-label small">{% trans "Digital Format" %}</label>
+                    <select name="digital_type" class="form-select form-select-sm">
+                        <option value="">{% trans "Any" %}</option>
+                        {% for value, label in digital_type_choices %}
+                            <option value="{{ value }}" {% if request.GET.digital_type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "Category" %}</label>
+                    <select name="category" class="form-select form-select-sm">
+                        <option value="">{% trans "All" %}</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if request.GET.category == cat.id|stringformat:'s' %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "Board" %}</label>
+                    <input class="form-control form-control-sm" name="board" value="{{ request.GET.board }}" placeholder="{% trans 'CBSE, ICSE...' %}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "University" %}</label>
+                    <input class="form-control form-control-sm" name="university" value="{{ request.GET.university }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "Semester" %}</label>
+                    <input class="form-control form-control-sm" name="semester" value="{{ request.GET.semester }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "Condition" %}</label>
+                    <select name="condition" class="form-select form-select-sm">
+                        <option value="">{% trans "Any" %}</option>
+                        <option value="like_new" {% if request.GET.condition == 'like_new' %}selected{% endif %}>{% trans "Like New" %}</option>
+                        <option value="excellent" {% if request.GET.condition == 'excellent' %}selected{% endif %}>{% trans "Excellent" %}</option>
+                        <option value="good" {% if request.GET.condition == 'good' %}selected{% endif %}>{% trans "Good" %}</option>
+                        <option value="fair" {% if request.GET.condition == 'fair' %}selected{% endif %}>{% trans "Fair" %}</option>
+                        <option value="old" {% if request.GET.condition == 'old' %}selected{% endif %}>{% trans "Old" %}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">{% trans "City" %}</label>
+                    <input class="form-control form-control-sm" name="city" value="{{ request.GET.city }}">
+                </div>
+                <div class="row g-1 mb-3">
+                    <div class="col"><input class="form-control form-control-sm" name="min_price" placeholder="{% trans 'Min ₹' %}" value="{{ request.GET.min_price }}"></div>
+                    <div class="col"><input class="form-control form-control-sm" name="max_price" placeholder="{% trans 'Max ₹' %}" value="{{ request.GET.max_price }}"></div>
+                </div>
+                <button class="btn btn-sm btn-primary w-100">{% trans "Apply Filters" %}</button>
+                <a href="{% url 'books:list' %}" class="btn btn-sm btn-link w-100">{% trans "Clear" %}</a>
+            </form>
+            {% if user.is_authenticated %}
+            <form method="post" action="{% url 'books:save_search' %}" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="q" value="{{ query }}">
+                <input type="hidden" name="category" value="{{ request.GET.category }}">
+                <input type="hidden" name="board" value="{{ request.GET.board }}">
+                <input type="hidden" name="university" value="{{ request.GET.university }}">
+                <input type="hidden" name="semester" value="{{ request.GET.semester }}">
+                <input type="hidden" name="condition" value="{{ request.GET.condition }}">
+                <input type="hidden" name="city" value="{{ request.GET.city }}">
+                <input type="hidden" name="min_price" value="{{ request.GET.min_price }}">
+                <input type="hidden" name="max_price" value="{{ request.GET.max_price }}">
+                <input type="hidden" name="listing_type" value="{{ request.GET.listing_type }}">
+                <input type="hidden" name="digital_type" value="{{ request.GET.digital_type }}">
+                <button class="btn btn-sm btn-outline-warning w-100" type="submit">
+                    <i class="bi bi-bell"></i> {% trans "Save this search" %}
+                </button>
+            </form>
+            <a href="{% url 'books:saved_search_list' %}" class="btn btn-sm btn-link w-100">{% trans "My saved searches" %}</a>
+            {% endif %}
+        </div>
+    </div>
+    <script nonce="{{ csp_nonce }}">
+    document.getElementById('listingTypeFilter').addEventListener('change', function () {
+        document.getElementById('digitalTypeWrap').style.display = this.value === 'digital' ? '' : 'none';
+    });
+    </script>
+
+    <div class="col-lg-9">
+        {% if parsed %}
+            <div class="alert alert-light border small">
+                <i class="bi bi-stars text-warning"></i> {% trans "AI Search understood:" %}
+                {% if parsed.semester %}<span class="badge bg-secondary me-1">{% blocktrans with sem=parsed.semester %}Semester {{ sem }}{% endblocktrans %}</span>{% endif %}
+                {% if parsed.university %}<span class="badge bg-secondary me-1">{{ parsed.university }}</span>{% endif %}
+                {% if parsed.board %}<span class="badge bg-secondary me-1">{{ parsed.board }}</span>{% endif %}
+                {% if parsed.branch %}<span class="badge bg-secondary me-1">{{ parsed.branch }}</span>{% endif %}
+                {% if parsed.keywords %}<span class="badge bg-secondary me-1">{% blocktrans with kw=parsed.keywords %}Subject: {{ kw }}{% endblocktrans %}</span>{% endif %}
+            </div>
+        {% endif %}
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">{% if query %}{% blocktrans count counter=page_obj.paginator.count with q=query %}{{ counter }} book found for "{{ q }}"{% plural %}{{ counter }} books found for "{{ q }}"{% endblocktrans %}{% else %}{% blocktrans count counter=page_obj.paginator.count %}{{ counter }} book found{% plural %}{{ counter }} books found{% endblocktrans %}{% endif %}</h5>
+        </div>
+        <div class="row g-3">
+            {% for book in page_obj %}{% include 'books/_book_card.html' %}
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        {% url 'books:add_request' as add_request_url %}{% blocktrans %}No books matched your search. <a href="{{ add_request_url }}">Post a request</a> so sellers can find you.{% endblocktrans %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.previous_page_number }}">{% trans "Prev" %}</a></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?{{ request.GET.urlencode }}&page={{ page_obj.next_page_number }}">{% trans "Next" %}</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

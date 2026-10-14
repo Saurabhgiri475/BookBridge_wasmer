@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Partner Analytics" %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-shop"></i> {{ partner.shop_name }}</h4>
+<p class="text-muted small">{% trans "Business analytics from your completed buybacks and the resale of those books." %}</p>
+{% include 'partners/_tabs.html' with active='analytics' %}
+
+{% if not has_data %}
+<div class="card p-4 text-center text-muted">
+    <i class="bi bi-graph-up fs-1"></i>
+    <p class="mb-0">{% trans "Analytics appear after your first completed buyback. Make an offer on a lead, collect the book and mark it paid." %}</p>
+</div>
+{% else %}
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ total_bought }}</div><div class="text-muted small">{% trans "Books Bought" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ total_spend }}</div><div class="text-muted small">{% trans "Paid to Sellers" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ total_revenue }}</div><div class="text-muted small">{% trans "Resale Revenue" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center">
+        <div class="stat-value {% if realised_profit < 0 %}text-danger{% else %}text-success{% endif %}">₹{{ realised_profit }}</div>
+        <div class="text-muted small">{% trans "Realised Profit" %}{% if margin_percent is not None %} {% blocktrans trimmed with percent=margin_percent %}({{ percent }}% margin){% endblocktrans %}{% endif %}</div>
+    </div></div>
+</div>
+<p class="small text-muted mb-3">{% trans "Realised profit = resale revenue &minus; what you paid &minus; BookBridge commission, counted only for books that have actually sold." %}</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{% if sell_through is not None %}{{ sell_through }}%{% else %}-{% endif %}</div><div class="text-muted small">{% blocktrans trimmed with sold=sold_count relisted=relisted_count %}Sell-through ({{ sold }}/{{ relisted }} relisted){% endblocktrans %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{% if avg_days_to_sell is not None %}{{ avg_days_to_sell }}{% else %}-{% endif %}</div><div class="text-muted small">{% trans "Avg Days to Sell" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{% if avg_pay_ratio is not None %}{{ avg_pay_ratio }}%{% else %}-{% endif %}</div><div class="text-muted small">{% trans "You Pay vs Seller's Ask" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ total_commission }}</div><div class="text-muted small">{% trans "Commission Charged" %}</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-7"><div class="card p-3"><h6>{% trans "Spend vs resale revenue by month" %}</h6><canvas id="flowChart" height="140"></canvas></div></div>
+    <div class="col-lg-5"><div class="card p-3"><h6>{% trans "Books bought per month" %}</h6><canvas id="countChart" height="200"></canvas></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6"><div class="card p-3"><h6>{% trans "Profit by category" %}</h6><canvas id="catChart" height="200"></canvas></div></div>
+    <div class="col-lg-6">
+        <div class="card p-3 h-100">
+            <h6>{% trans "Stock on your shelf" %}</h6>
+            <p class="mb-1">{% blocktrans trimmed with cost=stock_at_cost listed=stock_at_list count counter=stock_units %}<strong>{{ counter }}</strong> book unsold &middot; cost ₹{{ cost }} &middot; listed at ₹{{ listed }}{% plural %}<strong>{{ counter }}</strong> books unsold &middot; cost ₹{{ cost }} &middot; listed at ₹{{ listed }}{% endblocktrans %}</p>
+            <a href="{% url 'partners:inventory' %}?status=stale" class="small">{% trans "See books that need repricing &rarr;" %}</a>
+            <hr>
+            <h6>{% trans "Top sellers you buy from" %}</h6>
+            {% for name, data in top_sellers %}
+            <div class="d-flex justify-content-between small"><span>{{ name }}</span><span class="text-muted">{% blocktrans trimmed with paid=data.paid count counter=data.count %}{{ counter }} book &middot; ₹{{ paid }}{% plural %}{{ counter }} books &middot; ₹{{ paid }}{% endblocktrans %}</span></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">{% trans "Category performance" %}</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>{% trans "Category" %}</th><th>{% trans "Bought" %}</th><th>{% trans "Paid" %}</th><th>{% trans "Resale Revenue" %}</th><th>{% trans "Profit" %}</th></tr></thead>
+            <tbody>
+                {% for name, r in categories %}
+                <tr><td>{{ name }}</td><td>{{ r.bought }}</td><td>₹{{ r.spend }}</td><td>₹{{ r.revenue }}</td>
+                    <td class="{% if r.profit < 0 %}text-danger{% elif r.profit > 0 %}text-success{% endif %}">₹{{ r.profit }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{{ chart_json|json_script:"chartData" }}
+{% trans "Paid to sellers (₹)" as t_paid %}{% trans "Resale revenue (₹)" as t_resale %}{% trans "Books bought" as t_bought %}{% trans "Profit (₹)" as t_profit %}
+<script nonce="{{ csp_nonce }}">
+const d = JSON.parse(document.getElementById('chartData').textContent);
+new Chart(document.getElementById('flowChart'), {
+    type: 'bar',
+    data: {labels: d.labels, datasets: [
+        {label: '{{ t_paid|escapejs }}', data: d.spend, backgroundColor: '#dc3545'},
+        {label: '{{ t_resale|escapejs }}', data: d.revenue, backgroundColor: '#198754'},
+    ]},
+    options: {responsive: true, scales: {y: {beginAtZero: true}}}
+});
+new Chart(document.getElementById('countChart'), {
+    type: 'line',
+    data: {labels: d.labels, datasets: [{label: '{{ t_bought|escapejs }}', data: d.count, borderColor: '#14532d', tension: .25}]},
+    options: {responsive: true, scales: {y: {beginAtZero: true, ticks: {precision: 0}}}}
+});
+new Chart(document.getElementById('catChart'), {
+    type: 'bar',
+    data: {labels: d.cat_labels, datasets: [{label: '{{ t_profit|escapejs }}', data: d.cat_profit, backgroundColor: '#14532d'}]},
+    options: {indexAxis: 'y', responsive: true}
+});
+</script>
+{% endif %}
+{% endblock %}

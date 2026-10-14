@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Payouts &amp; Statements" %} - BookBridge{% endblock %}
+{% block content %}
+<h4 class="mb-1"><i class="bi bi-cash-stack"></i> {% trans "Payouts &amp; Statements" %}</h4>
+<p class="text-muted small">{% trans "What BookBridge owes you for delivered orders, what has been sent to your UPI ID, and downloadable commission statements." %}</p>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value text-warning">₹{{ totals.pending|intcomma }}</div><div class="text-muted small">{% trans "Payout pending" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value text-success">₹{{ totals.paid|intcomma }}</div><div class="text-muted small">{% trans "Paid to your UPI" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ totals.commission|intcomma }}</div><div class="text-muted small">{% trans "Commission charged (all time)" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ totals.orders }}</div><div class="text-muted small">{% trans "Orders settled" %}</div></div></div>
+</div>
+{% if totals.on_hold %}
+<div class="alert alert-secondary small">{% blocktrans trimmed with amount=totals.on_hold|intcomma %}₹{{ amount }} is on hold while we look into something - check the order notes or contact support.{% endblocktrans %}</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3 h-100">
+            <h6><i class="bi bi-phone"></i> {% trans "Where should we pay you?" %}</h6>
+            {% if not upi_id %}
+            <div class="alert alert-warning small py-2">{% trans "Add your UPI ID - we can't send payouts until you do." %}</div>
+            {% endif %}
+            <form method="post" action="{% url 'payouts:update_upi' %}" class="d-flex gap-2 flex-wrap">
+                {% csrf_token %}
+                <input type="text" name="upi_id" value="{{ upi_id }}" class="form-control form-control-sm" style="max-width:260px;" placeholder="yourname@bank" maxlength="100" autocomplete="off" required>
+                <input type="password" name="current_password" class="form-control form-control-sm" style="max-width:200px;" placeholder="{% trans 'Your password' %}" autocomplete="current-password">
+                <button class="btn btn-primary btn-sm">{% trans "Save UPI ID" %}</button>
+            </form>
+            <div class="small text-muted mt-2">{% trans "Double-check it - payouts go to exactly this ID. We email you whenever it changes, and payouts to a new UPI ID start 72 hours after the change. Enter your password to change it." %}</div>
+            {% if upi_id %}<div class="small mt-1">{% if upi_name_verified %}<span class="text-success"><i class="bi bi-patch-check-fill"></i> {% trans "Name on this UPI ID confirmed." %}</span>{% else %}{% trans "Before your first payout, we confirm the name on this UPI ID matches your account name" %}{% if account_name %} (<strong>{{ account_name }}</strong>){% else %} - {% url 'accounts:edit_profile' as profile_url %}{% blocktrans trimmed %}add your full name in <a href="{{ profile_url }}">your profile</a> first{% endblocktrans %}{% endif %}.{% endif %}</div>{% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 h-100">
+            <h6><i class="bi bi-file-earmark-arrow-down"></i> {% trans "Commission statement" %}</h6>
+            <form method="get" class="d-flex gap-2 flex-wrap align-items-center" id="stmtForm">
+                <select name="period" class="form-select form-select-sm" style="max-width:200px;">
+                    {% for key, label in period_choices %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-outline-danger btn-sm" formaction="{% url 'payouts:statement_pdf' %}"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                <button class="btn btn-outline-success btn-sm" formaction="{% url 'payouts:statement_csv' %}"><i class="bi bi-filetype-csv"></i> CSV</button>
+            </form>
+            <div class="small text-muted mt-2">{% trans "Sales, BookBridge's commission, net payout and UTR for each order. Months and financial years (Apr-Mar) in IST." %}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span>{% trans "Payout history" %}</span>
+        <form method="get" class="d-flex gap-2">
+            <select name="status" class="form-select form-select-sm" data-autosubmit>
+                <option value="">{% trans "All" %}</option>
+                {% for key, label in status_choices %}<option value="{{ key }}"{% if status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+    {% if not page_obj %}
+    <p class="text-muted small p-3 mb-0">{% trans "No payouts yet - one is created each time a buyer confirms delivery of your book." %}</p>
+    {% else %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>{% trans "Date" %}</th><th>{% trans "Order" %}</th><th class="text-end">{% trans "Sale" %}</th><th class="text-end">{% trans "Commission" %}</th><th class="text-end">{% trans "You get" %}</th><th>{% trans "Status" %}</th><th>UTR</th></tr></thead>
+            <tbody>
+            {% for payout in page_obj %}
+                <tr>
+                    <td class="small text-muted">{{ payout.released_at|date:"d M Y" }}</td>
+                    <td>{% if payout.order %}<a href="{% url 'orders:detail' payout.order.order_id %}">#{{ payout.order_ref }}</a>{% else %}#{{ payout.order_ref }}{% endif %}<div class="small text-muted">{{ payout.book_title|truncatechars:40 }}</div></td>
+                    <td class="text-end">₹{{ payout.gross_amount }}</td>
+                    <td class="text-end">₹{{ payout.commission_amount }} <span class="small text-muted">({{ payout.commission_percent }}%)</span></td>
+                    <td class="text-end fw-semibold">₹{{ payout.net_amount }}</td>
+                    <td>{% include 'payouts/_status_badge.html' %}{% if payout.paid_at %}<div class="small text-muted">{{ payout.paid_at|date:"d M" }}</div>{% endif %}</td>
+                    <td class="small">{{ payout.utr|default:"-" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.has_other_pages %}
+    <div class="p-2 d-flex gap-2 justify-content-center small">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&status={{ status }}">&laquo; {% trans "Newer" %}</a>{% endif %}
+        <span class="text-muted">{% blocktrans trimmed with num=page_obj.number total=page_obj.paginator.num_pages %}Page {{ num }} of {{ total }}{% endblocktrans %}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&status={{ status }}">{% trans "Older" %} &raquo;</a>{% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

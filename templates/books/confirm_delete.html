@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="card p-4">
+    <h5>{% blocktrans trimmed with title=book.title %}Remove "{{ title }}"?{% endblocktrans %}</h5>
+    <p class="text-muted">{% trans "This will unlist the book from the marketplace." %}</p>
+    <form method="post">
+        {% csrf_token %}
+        <button class="btn btn-danger">{% trans "Yes, remove it" %}</button>
+        <a href="{% url 'books:detail' book.pk %}" class="btn btn-outline-secondary">{% trans "Cancel" %}</a>
+    </form>
+</div>
+{% endblock %}

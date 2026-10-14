@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">{% trans "My Dashboard" %}</h4>
+    <a href="{% url 'accounts:seller_analytics' %}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-graph-up"></i> {% trans "View Analytics" %}
+    </a>
+</div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">{{ stats.listed }}</div><div class="small text-muted">{% trans "Books Listed" %}</div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">{{ stats.available }}</div><div class="small text-muted">{% trans "Available" %}</div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">{{ stats.sold }}</div><div class="small text-muted">{% trans "Sold" %}</div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">{{ stats.pending_orders }}</div><div class="small text-muted">{% trans "Pending Orders" %}</div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">₹{{ stats.revenue }}</div><div class="small text-muted">{% trans "Revenue (delivered)" %}</div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-value">{{ stats.total_purchases }}</div><div class="small text-muted">{% trans "My Purchases" %}</div></div></div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <h6>{% trans "Recent Sales" %}</h6>
+        {% for o in recent_sales %}
+        <div class="border rounded p-2 mb-2 d-flex justify-content-between">
+            <div><a href="{% url 'orders:detail' o.order_id %}">{{ o.book.title }}</a><div class="small text-muted">{% blocktrans trimmed with name=o.buyer|public_name %}Buyer: {{ name }}{% endblocktrans %}</div></div>
+            <span class="badge bg-light text-dark border align-self-center">{{ o.get_status_display }}</span>
+        </div>
+        {% empty %}<p class="text-muted small">{% trans "No sales yet." %}</p>{% endfor %}
+    </div>
+    <div class="col-md-6">
+        <h6>{% trans "Recent Purchases" %}</h6>
+        {% for o in recent_purchases %}
+        <div class="border rounded p-2 mb-2 d-flex justify-content-between">
+            <div><a href="{% url 'orders:detail' o.order_id %}">{{ o.book.title }}</a><div class="small text-muted">{% blocktrans trimmed with name=o.book.seller|public_name %}Seller: {{ name }}{% endblocktrans %}</div></div>
+            <span class="badge bg-light text-dark border align-self-center">{{ o.get_status_display }}</span>
+        </div>
+        {% empty %}<p class="text-muted small">{% trans "No purchases yet." %}</p>{% endfor %}
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mt-4">
+    <h6 class="mb-0">{% trans "My Listings" %}</h6>
+    <a href="{% url 'books:bulk_upload' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-upload"></i> {% trans "Bulk Upload" %}
+    </a>
+</div>
+<div class="row g-3">
+    {% for book in my_books %}{% include 'books/_book_card.html' %}
+    {% empty %}<p class="text-muted small">{% url 'books:add' as add_url %}{% blocktrans trimmed %}You haven't listed any books yet. <a href="{{ add_url }}">List one now</a>.{% endblocktrans %}</p>{% endfor %}
+</div>
+
+{% if listing_performance %}
+<h6 class="mt-4">{% trans "Listing Performance" %}</h6>
+<div class="table-responsive">
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr><th>{% trans "Book" %}</th><th>{% trans "Views" %}</th><th>{% trans "Offers" %}</th><th>{% trans "Wishlisted" %}</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for book in listing_performance %}
+            <tr>
+                <td><a href="{% url 'books:detail' book.pk %}">{{ book.title }}</a></td>
+                <td>{{ book.views }}</td>
+                <td>{{ book.offer_count }}</td>
+                <td>{{ book.wishlist_count }}</td>
+                <td class="small text-muted">
+                    {% if book.views >= 20 and book.offer_count == 0 %}
+                        <i class="bi bi-lightbulb text-warning"></i> {% trans "Lots of views, no offers yet - try lowering the price." %}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "My Buyback Requests" %}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-cash-stack"></i> {% trans "My Direct Buyback Requests" %}</h4>
+    {% if not nav_partner %}
+    <a href="{% url 'partners:sell_to_bookbridge' %}" class="btn btn-warning text-dark fw-semibold btn-sm">
+        <i class="bi bi-plus-circle"></i> {% trans "Sell Another Book" %}
+    </a>
+    {% endif %}
+</div>
+
+{% if not buyback_requests %}
+<p class="text-muted">{% trans "You haven't listed any books for direct buyback yet." %}</p>
+{% else %}
+<div class="table-responsive">
+    <table class="table align-middle">
+        <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Status" %}</th><th>{% trans "Offer" %}</th><th>{% trans "Partner" %}</th><th></th></tr></thead>
+        <tbody>
+            {% for req in buyback_requests %}
+            <tr>
+                <td>{{ req.title }}</td>
+                <td>
+                    <span class="badge
+                        {% if req.status == 'pending' %}bg-secondary
+                        {% elif req.status == 'offer_made' %}bg-info text-dark
+                        {% elif req.status == 'accepted' %}bg-primary
+                        {% elif req.status == 'paid' %}bg-success
+                        {% else %}bg-dark{% endif %}">
+                        {{ req.get_status_display }}
+                    </span>
+                </td>
+                <td>{% if req.offered_price %}₹{{ req.offered_price }}{% else %}-{% endif %}</td>
+                <td>{{ req.partner.shop_name|default:"-" }}</td>
+                <td><a href="{% url 'partners:buyback_detail' req.pk %}" class="btn btn-sm btn-outline-secondary">{% trans "View" %}</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

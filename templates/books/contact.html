@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Contact us" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-7">
+    <h3 class="mb-1"><i class="bi bi-headset"></i> {% trans "Need help?" %}</h3>
+    <p class="text-muted">{% trans "Facing a problem with your account, an order, a payment or a listing? Reach us directly - we're happy to help." %}</p>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card p-3 h-100 text-center">
+                <div class="fs-3"><i class="bi bi-telephone"></i></div>
+                <div class="fw-semibold">{% trans "Call us" %}</div>
+                <a class="fs-5" href="tel:{{ support_phone_tel }}">{{ support_phone_display }}</a>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-3 h-100 text-center">
+                <div class="fs-3"><i class="bi bi-envelope"></i></div>
+                <div class="fw-semibold">{% trans "Email us" %}</div>
+                <a class="fs-6 text-break" href="mailto:{{ support_email }}?subject=BookBridge%20support">{{ support_email }}</a>
+            </div>
+        </div>
+    </div>
+    <div class="card p-3 mt-3 small">
+        <div class="fw-semibold mb-1">{% trans "To get help faster, include:" %}</div>
+        <ul class="mb-0">
+            <li>{% trans "Your BookBridge username (never your password or any OTP)." %}</li>
+            <li>{% trans "The order number (the 8 characters shown on the order page) or dispute number, if it's about an order." %}</li>
+            <li>{% trans "A short description, and a screenshot if something looks wrong." %}</li>
+        </ul>
+    </div>
+    <p class="small text-muted mt-3 mb-0">{% url 'disputes:mine' as disputes_url %}{% url 'accounts:password_reset' as reset_url %}{% blocktrans trimmed %}Problem with an order? You can also <a href="{{ disputes_url }}">open or check a dispute</a>. Forgot your password? <a href="{{ reset_url }}">Reset it by email</a>.{% endblocktrans %}</p>
+</div></div>
+{% endblock %}

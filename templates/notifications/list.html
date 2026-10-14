@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-bell"></i> {% trans "Notifications" %}</h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'notifications:preferences' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-sliders"></i> {% trans "Preferences" %}
+        </a>
+        {% if unread_count %}
+        <form method="post" action="{% url 'notifications:mark_all_read' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button type="submit" class="btn btn-outline-dark btn-sm">{% trans "Mark all read" %}</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if not page_obj.object_list %}
+<p class="text-muted">{% trans "No notifications yet - you'll see order updates, offers, messages, and matches here." %}</p>
+{% endif %}
+
+<div class="list-group mb-3">
+    {% for n in page_obj %}
+    <div class="list-group-item d-flex justify-content-between align-items-start {% if not n.is_read %}bg-light{% endif %}">
+        <div class="me-3">
+            <div class="{% if not n.is_read %}fw-semibold{% endif %}">
+                {% if not n.is_read %}<span class="badge bg-primary me-1">{% trans "New" %}</span>{% endif %}
+                {{ n.title }}
+            </div>
+            <div class="small text-muted">{{ n.body }}</div>
+            <div class="small text-muted">{{ n.created_at|date:"d M Y, H:i" }}</div>
+        </div>
+        <form method="post" action="{% url 'notifications:mark_read' n.pk %}" class="flex-shrink-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+                {% if n.url %}{% trans "Open" %}{% else %}{% trans "Mark read" %}{% endif %}
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav>
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">{% blocktrans trimmed with num=page_obj.number total=page_obj.paginator.num_pages %}Page {{ num }} of {{ total }}{% endblocktrans %}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

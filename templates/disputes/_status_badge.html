@@ -1,0 +1,5 @@
+{% load i18n %}{% if dispute.status == 'resolved' %}<span class="badge bg-success">{% trans "Resolved" %}</span>
+{% elif dispute.status == 'escalated' %}<span class="badge bg-danger">{% trans "With BookBridge" %}</span>
+{% elif dispute.status == 'seller_responded' %}<span class="badge bg-info text-dark">{% trans "Seller replied" %}</span>
+{% elif dispute.status == 'open' %}<span class="badge bg-warning text-dark">{% trans "Waiting for seller" %}</span>
+{% else %}<span class="badge bg-light text-dark border">{% trans "Withdrawn" %}</span>{% endif %}

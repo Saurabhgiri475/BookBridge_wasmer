@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% blocktrans trimmed with id=donation.pk %}Donation #{{ id }}{% endblocktrans %} - {% trans "Staff" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-9">
+<a class="small" href="{% url 'donations:staff_queue' %}">&larr; {% trans "All donations" %}</a>
+<div class="d-flex justify-content-between align-items-center my-2">
+    <h4 class="mb-0">{% blocktrans trimmed with id=donation.pk name=donation.partner.name %}Donation #{{ id }} &middot; {{ name }}{% endblocktrans %}</h4>
+    {% include 'donations/_status_badge.html' with status=donation.status label=donation.get_status_display %}
+</div>
+
+<div class="card p-3 mb-3 small">
+    <div><strong>{% trans "Donor" %}:</strong> {{ donation.donor.username }} ({{ donation.donor.email }}){% if donation.contact_phone %} &middot; {{ donation.contact_phone }}{% endif %}</div>
+    <div><strong>{% trans "Name on certificate" %}:</strong> {{ donation.certificate_name }}</div>
+    <div><strong>{% trans "Handover" %}:</strong> {{ donation.get_handover_display }}{% if donation.handover == 'pickup' %} &mdash; {{ donation.pickup_address }}, {{ donation.pickup_city }} {{ donation.pickup_pincode }}{% endif %}</div>
+    {% if donation.note %}<div><strong>{% trans "Note" %}:</strong> {{ donation.note }}</div>{% endif %}
+    {% if donation.rejection_reason %}<div><strong>{% trans "Rejected" %}:</strong> {{ donation.rejection_reason }}</div>{% endif %}
+    {% if donation.reviewed_by %}<div class="text-muted">{% blocktrans trimmed with name=donation.reviewed_by.username date=donation.reviewed_at|date:"d M Y H:i" %}Last reviewed by {{ name }} on {{ date }}{% endblocktrans %}</div>{% endif %}
+</div>
+
+<div class="card p-3 mb-3">
+    <table class="table table-sm mb-0">
+        <thead><tr><th>{% trans "Title" %}</th><th>{% trans "Author" %}</th><th>ISBN</th><th>{% trans "Condition" %}</th><th class="text-end">{% trans "Copies" %}</th></tr></thead>
+        <tbody>{% for i in items %}<tr><td>{{ i.title }}</td><td>{{ i.author|default:"-" }}</td><td>{{ i.isbn|default:"-" }}</td><td>{{ i.get_condition_display }}</td><td class="text-end">{{ i.quantity }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><th colspan="4">{% trans "Total listed by donor" %}</th><th class="text-end">{{ donation.claimed_count }}</th></tr></tfoot>
+    </table>
+</div>
+
+{% if donation.is_open %}
+<div class="card p-3 mb-3">
+    <h6>{% trans "Actions" %}</h6>
+    <div class="row g-3">
+        {% if donation.status == 'submitted' %}
+        <div class="col-md-4">
+            <form method="post" action="{% url 'donations:staff_accept' donation.pk %}">{% csrf_token %}<button class="btn btn-primary w-100">{% trans "Accept donation" %}</button></form>
+        </div>
+        {% endif %}
+        <div class="col-md-8">
+            <form method="post" action="{% url 'donations:staff_receive' donation.pk %}" class="d-flex gap-2" data-confirm="{% trans 'Mark received and issue the certificate for this number of books? This emails the donor.' %}">
+                {% csrf_token %}
+                {{ receive_form.received_count }}
+                <button class="btn btn-success text-nowrap">{% trans "Mark received + issue certificate" %}</button>
+            </form>
+            <div class="form-text">{% trans "Enter the number of books actually received - this is what the certificate shows." %}</div>
+        </div>
+        <div class="col-12">
+            <form method="post" action="{% url 'donations:staff_reject' donation.pk %}" class="d-flex gap-2">
+                {% csrf_token %}<input class="form-control" name="reason" maxlength="300" required placeholder="{% trans 'Reason (shown to the donor)' %}"><button class="btn btn-outline-danger text-nowrap">{% trans "Reject" %}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if certificate %}
+<div class="card p-3 {% if certificate.revoked %}border-danger{% endif %}">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <div class="fw-semibold">{% blocktrans trimmed with code=certificate.code %}Certificate {{ code }}{% endblocktrans %} {% if certificate.revoked %}<span class="badge bg-danger">{% trans "Revoked" %}</span>{% endif %}</div>
+            <div class="small text-muted">{% blocktrans trimmed with count=certificate.books_count date=certificate.issued_at|date:"d M Y" %}{{ count }} books &middot; issued {{ date }}{% endblocktrans %}{% if certificate.revoked %} &middot; {{ certificate.revoked_reason }}{% endif %}</div>
+        </div>
+        {% if not certificate.revoked %}
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-sm btn-outline-success" href="{% url 'donations:certificate_pdf' certificate.code %}">{% trans "Download PDF" %}</a>
+            <form method="post" action="{% url 'donations:staff_revoke' certificate.code %}" class="d-flex gap-2" data-confirm="{% trans 'Revoke this certificate? It will stop counting toward Impact.' %}">
+                {% csrf_token %}<input class="form-control form-control-sm" name="reason" maxlength="300" required placeholder="{% trans 'Reason' %}"><button class="btn btn-sm btn-outline-danger text-nowrap">{% trans "Revoke" %}</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+</div></div>
+{% endblock %}

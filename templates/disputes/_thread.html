@@ -1,0 +1,28 @@
+{# Expects `thread` (messages with prefetched evidence) and `viewer` ('buyer' / 'seller' / 'staff'). #}
+{% load i18n %}{% load public_names %}{% trans "Deleted user" as deleted_label %}
+{% for m in thread %}
+    {% if m.role == 'system' %}
+    <div class="text-center text-muted small my-2">{{ m.body }} <span class="ms-1">&middot; {{ m.created_at|date:"d M, H:i" }}</span></div>
+    {% else %}
+    <div class="card p-2 mb-2 {% if m.internal %}border-warning{% elif m.role == viewer %}bg-light{% endif %}">
+        <div class="small d-flex justify-content-between">
+            <span class="fw-semibold">
+                {% if m.role == 'staff' %}BookBridge{% else %}{% if viewer == 'staff' %}{{ m.author.username|default:deleted_label }}{% else %}{{ m.author|public_name|default:deleted_label }}{% endif %}{% endif %}
+                <span class="badge bg-light text-dark border ms-1">{{ m.get_role_display }}</span>
+                {% if m.internal %}<span class="badge bg-warning text-dark ms-1">{% trans "Internal note" %}</span>{% endif %}
+            </span>
+            <span class="text-muted">{{ m.created_at|date:"d M Y, H:i" }}</span>
+        </div>
+        <div class="mt-1" style="white-space:pre-wrap;">{{ m.body }}</div>
+        {% if m.evidence.all %}
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            {% for ev in m.evidence.all %}
+            <a href="{% url 'disputes:evidence' ev.pk %}" target="_blank" rel="noopener"><img src="{% url 'disputes:evidence' ev.pk %}" alt="{% trans 'Photo attached to this message' %}" style="height:90px;width:auto;border-radius:6px;border:1px solid #dee2e6;"></a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+{% empty %}
+    <p class="text-muted small">{% trans "No messages yet." %}</p>
+{% endfor %}

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-upload"></i> {% trans "Bulk Upload Books" %}</h4>
+    <a href="{% url 'books:add' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-plus-circle"></i> {% trans "List One Book Instead" %}
+    </a>
+</div>
+
+<div class="card p-3 mb-4">
+    <p class="small text-muted mb-2">
+        {% blocktrans trimmed %}List many <strong>physical</strong> books at once from a spreadsheet, instead of filling in the one-book form each time. Digital listings (PDFs, notes) still need to be added individually since each one needs its own file upload.{% endblocktrans %}
+    </p>
+    <ol class="small text-muted mb-3">
+        <li>{% trans "Download the template below and fill in one row per book (keep the header row as-is)." %}</li>
+        <li>{% blocktrans trimmed %}<code>title</code> and <code>price</code> are the only required columns - everything else is optional.{% endblocktrans %}</li>
+        <li>{% blocktrans trimmed %}<code>category</code> must match an existing category name exactly (see the "Reference" tab in the template) and <code>condition</code> must be one of the listed condition codes.{% endblocktrans %}</li>
+        <li>{% trans "Upload the filled-in file below. Every row still goes through the same Fraud Detection check as a normal listing, so a row may be held for manual review before it's visible to buyers." %}</li>
+    </ol>
+    <a href="{% url 'books:bulk_upload_template' %}" class="btn btn-outline-success btn-sm align-self-start">
+        <i class="bi bi-file-earmark-spreadsheet"></i> {% trans "Download Template (.xlsx)" %}
+    </a>
+</div>
+
+<div class="card p-3 mb-4">
+    <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold">{{ form.file.label }}</label>
+            {{ form.file }}
+            {% if form.file.help_text %}<div class="form-text">{{ form.file.help_text }}</div>{% endif %}
+            {% for error in form.file.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <button type="submit" class="btn btn-warning text-dark fw-semibold">
+            <i class="bi bi-upload"></i> {% trans "Upload &amp; Import" %}
+        </button>
+    </form>
+</div>
+
+{% if result %}
+<div class="row g-3">
+    {% if result.created %}
+    <div class="col-md-6">
+        <div class="card p-3 border-success h-100">
+            <h6 class="text-success"><i class="bi bi-check-circle"></i> {% blocktrans trimmed with n=result.created|length %}Imported ({{ n }}){% endblocktrans %}</h6>
+            <ul class="small mb-0" style="max-height:320px; overflow-y:auto;">
+                {% for book in result.created %}
+                <li>
+                    <a href="{% url 'books:detail' book.pk %}">{{ book.title }}</a>
+                    {% if book.status == 'under_review' %}
+                        <span class="badge bg-warning text-dark ms-1">{% trans "Under Review" %}</span>
+                    {% else %}
+                        <span class="badge bg-success ms-1">{% trans "Live" %}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+    {% if result.errors %}
+    <div class="col-md-6">
+        <div class="card p-3 border-danger h-100">
+            <h6 class="text-danger"><i class="bi bi-exclamation-triangle"></i> {% blocktrans trimmed with n=result.errors|length %}Skipped ({{ n }}){% endblocktrans %}</h6>
+            <ul class="small mb-0" style="max-height:320px; overflow-y:auto;">
+                {% for err in result.errors %}
+                <li><strong>{% blocktrans trimmed with row=err.row %}Row {{ row }}{% endblocktrans %}</strong> ({{ err.title }}): {{ err.message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

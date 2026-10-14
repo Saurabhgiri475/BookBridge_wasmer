@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Donate Books" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-9">
+    <h3 class="mb-1"><i class="bi bi-gift"></i> {% trans "Donate books" %}</h3>
+    <p class="text-muted">{% trans "Your certificate is issued for the number of books we verify as received." %}</p>
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+        <div class="card p-3 mb-3">
+            <h6 class="mb-3">{% trans "1. Who are you donating to?" %}</h6>
+            <div class="mb-3">
+                <label class="form-label" for="{{ form.partner.id_for_label }}">{{ form.partner.label }}</label>
+                {{ form.partner }}
+                {% for e in form.partner.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="mb-0">
+                <label class="form-label" for="{{ form.certificate_name.id_for_label }}">{{ form.certificate_name.label }}</label>
+                {{ form.certificate_name }}
+                <div class="form-text">{{ form.certificate_name.help_text }}</div>
+                {% for e in form.certificate_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h6 class="mb-1">{% trans "2. Your books" %}</h6>
+            <div class="small text-muted mb-3">{% trans "List each title with how many copies. Leave unused rows empty." %}</div>
+            {{ formset.management_form }}
+            {% if formset.non_form_errors %}<div class="alert alert-danger">{{ formset.non_form_errors }}</div>{% endif %}
+            <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>{% trans "Title" %}</th><th>{% trans "Author" %}</th><th>ISBN</th><th style="min-width:130px">{% trans "Condition" %}</th><th style="width:90px">{% trans "Copies" %}</th></tr></thead>
+                <tbody>
+                {% for f in formset %}
+                    <tr>
+                        {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+                        <td>{{ f.title }}{% for e in f.title.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+                        <td>{{ f.author }}</td>
+                        <td>{{ f.isbn }}</td>
+                        <td>{{ f.condition }}</td>
+                        <td>{{ f.quantity }}{% for e in f.quantity.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <h6 class="mb-3">{% trans "3. How will the books reach them?" %}</h6>
+            <div class="mb-3">
+                {% for radio in form.handover %}
+                <div class="form-check">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                {% endfor %}
+                {% for e in form.handover.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                <div class="form-text">{% blocktrans trimmed %}Pickup is only available for organisations marked "pickup available". Otherwise you'll get the drop-off address once the donation is accepted.{% endblocktrans %}</div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-12"><label class="form-label">{% trans "Pickup address" %}</label>{{ form.pickup_address }}{% for e in form.pickup_address.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                <div class="col-md-6"><label class="form-label">{% trans "City" %}</label>{{ form.pickup_city }}{% for e in form.pickup_city.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                <div class="col-md-6"><label class="form-label">{% trans "PIN code" %}</label>{{ form.pickup_pincode }}{% for e in form.pickup_pincode.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                <div class="col-md-6"><label class="form-label">{% trans "Contact phone" %}</label>{{ form.contact_phone }}{% for e in form.contact_phone.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}</div>
+                <div class="col-12"><label class="form-label">{% trans "Note" %}</label>{{ form.note }}</div>
+            </div>
+        </div>
+
+        <button class="btn btn-success btn-lg" type="submit"><i class="bi bi-heart-fill"></i> {% trans "Submit donation" %}</button>
+        <a class="btn btn-link" href="{% url 'donations:home' %}">{% trans "Cancel" %}</a>
+    </form>
+</div>
+</div>
+{% endblock %}

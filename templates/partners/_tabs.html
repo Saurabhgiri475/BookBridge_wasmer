@@ -1,0 +1,7 @@
+{% load i18n %}<ul class="nav nav-pills partner-tabs mb-3 flex-wrap gap-1">
+    <li class="nav-item"><a class="nav-link {% if active == 'dashboard' %}active{% endif %}" href="{% url 'partners:dashboard' %}"><i class="bi bi-inboxes"></i> {% trans "Leads &amp; Offers" %}</a></li>
+    <li class="nav-item"><a class="nav-link {% if active == 'analytics' %}active{% endif %}" href="{% url 'partners:analytics' %}"><i class="bi bi-graph-up-arrow"></i> {% trans "Analytics" %}</a></li>
+    <li class="nav-item"><a class="nav-link {% if active == 'inventory' %}active{% endif %}" href="{% url 'partners:inventory' %}"><i class="bi bi-boxes"></i> {% trans "Inventory" %}</a></li>
+    <li class="nav-item"><a class="nav-link {% if active == 'earnings' %}active{% endif %}" href="{% url 'partners:earnings' %}"><i class="bi bi-cash-coin"></i> {% trans "Earnings" %}</a></li>
+    <li class="nav-item"><a class="nav-link {% if active == 'settings' %}active{% endif %}" href="{% url 'partners:settings' %}"><i class="bi bi-gear"></i> {% trans "Shop Settings" %}</a></li>
+</ul>

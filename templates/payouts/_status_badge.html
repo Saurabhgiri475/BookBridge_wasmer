@@ -1,0 +1,4 @@
+{% load i18n %}{% if payout.status == 'paid' %}<span class="badge bg-success">{% trans "Paid" %}</span>
+{% elif payout.status == 'pending' %}<span class="badge bg-warning text-dark">{% trans "Pending" %}</span>
+{% elif payout.status == 'on_hold' %}<span class="badge bg-secondary">{% trans "On hold" %}</span>
+{% else %}<span class="badge bg-light text-dark border">{% trans "Cancelled" %}</span>{% endif %}

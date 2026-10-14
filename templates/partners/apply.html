@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+{% block title %}{% trans "Become a BookBridge Partner" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        {% if reapplying %}
+        <div class="alert alert-warning">
+            <strong>{% trans "Your previous application was not approved." %}</strong>
+            {% if previous.rejection_reason %}{% blocktrans trimmed with reason=previous.rejection_reason %}Reason: {{ reason }}{% endblocktrans %}{% endif %}
+            <div class="small mt-1">{% trans "Update the details or upload clearer documents, then submit again. Please re-enter your Aadhaar number." %}</div>
+        </div>
+        {% endif %}
+        {% if editing %}
+        <div class="alert alert-info">
+            <strong>{% trans "Editing your pending application." %}</strong>
+            <div class="small mt-1">{% url 'partners:apply' as apply_url %}{% blocktrans trimmed %}Fix a detail or swap a document that was unclear. Leave the ID number or a photo untouched to keep what you already submitted. Your place in the review queue is kept. <a href="{{ apply_url }}">Cancel</a>{% endblocktrans %}</div>
+        </div>
+        {% endif %}
+        <h4 class="mb-1"><i class="bi bi-shop"></i> {% trans "Become a BookBridge Shopkeeper Partner" %}</h4>
+        <p class="text-muted">
+            {% blocktrans trimmed %}Partners buy old books directly from sellers on BookBridge's behalf - instant cash for the seller, fresh stock for your shop. Approved partners pay BookBridge a 10% commission on every book they buy this way. We ask for a couple of documents up front just to confirm you run a real shop.{% endblocktrans %}
+        </p>
+        <form method="post" enctype="multipart/form-data" class="card p-3">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+            <label class="form-label small">{% trans "Shop Name" %}</label>
+            {{ form.shop_name }}
+            {{ form.shop_name.errors }}
+
+            <label class="form-label small mt-2">{% trans "Shop Address" %}</label>
+            {{ form.shop_address }}
+            {{ form.shop_address.errors }}
+
+            <div class="row g-2 mt-1">
+                <div class="col-md-6">
+                    <label class="form-label small">{% trans "City" %}</label>
+                    {{ form.shop_city }}
+                    {{ form.shop_city.errors }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">{% trans "Pincode" %}</label>
+                    {{ form.shop_pincode }}
+                    {{ form.shop_pincode.errors }}
+                </div>
+            </div>
+
+            {{ form.shop_latitude }}
+            {{ form.shop_longitude }}
+            <button type="button" id="useLocationBtn" class="btn btn-sm btn-outline-secondary mt-2 align-self-start">
+                <i class="bi bi-geo-alt"></i> {% trans "Use my current location" %}
+            </button>
+            <div id="locationStatus" class="small text-muted mt-1"></div>
+            <p class="small text-muted mt-1 mb-0">
+                {% trans "Optional, but lets us match you to nearby buyback requests by distance instead of city name alone." %}
+            </p>
+
+            <div class="row g-2 mt-1">
+                <div class="col-md-6">
+                    <label class="form-label small">{% trans "Contact Phone" %}</label>
+                    {{ form.contact_phone }}
+                    {{ form.contact_phone.errors }}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">{% trans "GSTIN (optional)" %}</label>
+                    {{ form.gstin }}
+                    <div class="form-text small">{% trans "15 characters. We check the format and checksum." %}</div>
+                    {{ form.gstin.errors }}
+                </div>
+            </div>
+
+            <hr>
+            {% include "partners/_id_fields.html" %}
+
+            <button type="submit" class="btn btn-warning text-dark fw-semibold mt-3">{% if reapplying %}{% trans "Re-submit Application" %}{% elif editing %}{% trans "Save Changes" %}{% else %}{% trans "Submit Application" %}{% endif %}</button>
+        </form>
+    </div>
+</div>
+{% trans "Location not supported by this browser." as t_unsup %}{% trans "Getting your location..." as t_getting %}{% trans "Location captured." as t_captured %}{% trans "Could not get your location - you can still submit without it." as t_failed %}
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('form input[type=text], form input[type=email], form input[type=tel], form input[type=number], form textarea').forEach(el => el.classList.add('form-control'));
+document.querySelectorAll('form input[type=file]').forEach(el => el.classList.add('form-control'));
+
+document.getElementById('useLocationBtn').addEventListener('click', function () {
+    const status = document.getElementById('locationStatus');
+    if (!navigator.geolocation) {
+        status.textContent = '{{ t_unsup|escapejs }}';
+        return;
+    }
+    status.textContent = '{{ t_getting|escapejs }}';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('id_shop_latitude').value = pos.coords.latitude;
+        document.getElementById('id_shop_longitude').value = pos.coords.longitude;
+        status.textContent = '{{ t_captured|escapejs }}';
+    }, function () {
+        status.textContent = '{{ t_failed|escapejs }}';
+    });
+});
+</script>
+<script src="{% static 'js/upload-preview.js' %}"></script>
+{% endblock %}

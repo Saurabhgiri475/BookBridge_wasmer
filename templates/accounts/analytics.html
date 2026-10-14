@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-graph-up"></i> {% trans "Seller Analytics" %}</h4>
+    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> {% trans "Back to Dashboard" %}
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-value">₹{{ total_revenue|floatformat:0 }}</div><div class="small text-muted">{% trans "Revenue (last 12mo, delivered)" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-value">{{ total_delivered_orders }}</div><div class="small text-muted">{% trans "Delivered Orders" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-value">{% if overall_avg_rating %}{{ overall_avg_rating }} <i class="bi bi-star-fill text-warning" style="font-size:0.7em;"></i>{% else %}-{% endif %}</div><div class="small text-muted">{% trans "Avg Seller Rating" %}</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card"><div class="stat-value">{{ best_categories|length }}</div><div class="small text-muted">{% trans "Categories Sold In" %}</div></div>
+    </div>
+</div>
+
+{% if not has_data %}
+<div class="alert alert-light border small text-muted">
+    {% trans "No delivered sales or reviews yet - charts will fill in once your orders start getting delivered." %}
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-3 h-100">
+            <h6>{% trans "Sales Over Time" %}</h6>
+            <canvas id="salesChart" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-3 h-100">
+            <h6>{% trans "Best Categories (by revenue)" %}</h6>
+            <canvas id="categoryChart" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card p-3">
+            <h6>{% trans "Average Rating Trend" %}</h6>
+            <canvas id="ratingChart" height="120"></canvas>
+        </div>
+    </div>
+</div>
+
+{{ analytics_data_json|json_script:"analytics-data" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% trans "Revenue (₹)" as revenue_label %}{% trans "Avg Seller Rating" as rating_label %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const revenueLabel = "{{ revenue_label|escapejs }}";
+    const ratingLabel = "{{ rating_label|escapejs }}";
+    const data = JSON.parse(document.getElementById('analytics-data').textContent);
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--bs-warning') || '#ffc107';
+
+    new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: {
+            labels: data.sales_labels,
+            datasets: [{
+                label: revenueLabel,
+                data: data.sales_revenue,
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25,135,84,0.15)',
+                tension: 0.3,
+                fill: true,
+            }],
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } },
+    });
+
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+            labels: data.category_labels,
+            datasets: [{
+                label: revenueLabel,
+                data: data.category_revenue,
+                backgroundColor: '#0d6efd',
+            }],
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+        },
+    });
+
+    new Chart(document.getElementById('ratingChart'), {
+        type: 'line',
+        data: {
+            labels: data.rating_labels,
+            datasets: [{
+                label: ratingLabel,
+                data: data.rating_values,
+                borderColor: '#fd7e14',
+                backgroundColor: 'rgba(253,126,20,0.15)',
+                spanGaps: true,
+                tension: 0.3,
+                fill: true,
+            }],
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: 0, max: 5 } },
+        },
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Partner Dashboard" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+    <h4 class="mb-0"><i class="bi bi-shop"></i> {{ partner.shop_name }}</h4>
+    <form method="post" action="{% url 'partners:toggle_accepting' %}" class="d-flex align-items-center gap-2">
+        {% csrf_token %}
+        <span class="small {% if partner.is_accepting_requests %}text-success{% else %}text-danger{% endif %}">
+            <i class="bi bi-circle-fill" style="font-size:.6rem;"></i> {% if partner.is_accepting_requests %}{% trans "Open for leads" %}{% else %}{% trans "Paused" %}{% endif %}
+        </span>
+        <button class="btn btn-sm btn-outline-secondary">{% if partner.is_accepting_requests %}{% trans "Pause" %}{% else %}{% trans "Reopen" %}{% endif %}</button>
+    </form>
+</div>
+<p class="text-muted small mb-1">{% blocktrans trimmed with commission=partner.commission_percent margin=partner.target_margin_percent %}Commission rate: {{ commission }}% &middot; Target margin: {{ margin }}%{% endblocktrans %}</p>
+<div class="mb-2 d-flex flex-wrap align-items-center gap-2">
+    {% include 'partners/_badges.html' with rep=reputation %}
+    <a href="{% url 'partners:profile' partner.pk %}" class="small">{% trans "How sellers see your shop" %}</a>
+</div>
+{% if reputation.hints %}<p class="small text-muted"><i class="bi bi-trophy"></i> {% blocktrans trimmed with hints=reputation.hints|join:" · " %}Next: {{ hints }}{% endblocktrans %}</p>{% endif %}
+{% if reserved_count %}
+<div class="alert alert-warning small">
+    <i class="bi bi-stopwatch"></i> {% blocktrans trimmed with minutes=response_minutes count counter=reserved_count %}<strong>{{ counter }} lead reserved for you.</strong> Make an offer (or pass) within {{ minutes }} minutes of getting it - otherwise it moves to the next partner nearby.{% plural %}<strong>{{ counter }} leads reserved for you.</strong> Make an offer (or pass) within {{ minutes }} minutes of getting it - otherwise it moves to the next partner nearby.{% endblocktrans %}
+</div>
+{% endif %}
+{% include 'partners/_tabs.html' with active='dashboard' %}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ open_requests|length }}</div><div class="text-muted small">{% trans "Open Nearby Leads" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ my_requests|length }}</div><div class="text-muted small">{% trans "Active Offers" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ month_count }}</div><div class="text-muted small">{% blocktrans trimmed with spend=month_spend %}Bought This Month (₹{{ spend }}){% endblocktrans %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">₹{{ total_due }}</div><div class="text-muted small">{% trans "Commission Due" %}</div></div></div>
+</div>
+
+{% if not partner.is_accepting_requests %}
+<div class="alert alert-warning small">{% blocktrans trimmed %}Lead intake is paused - you won't see or be alerted about new buyback requests. Use <strong>Reopen</strong> above when you're ready.{% endblocktrans %}</div>
+{% endif %}
+
+<!-- Open requests near this shop -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-inboxes"></i> {% trans "Open Buyback Requests Near You" %}</span>
+        <form method="get" class="d-flex align-items-center gap-2">
+            <label class="small text-muted mb-0">{% trans "Radius" %}</label>
+            <select name="radius" class="form-select form-select-sm" style="width:auto;" data-autosubmit {% if not has_shop_coords %}disabled{% endif %}>
+                <option value="10" {% if radius_km == 10 %}selected{% endif %}>10 km</option>
+                <option value="25" {% if radius_km == 25 %}selected{% endif %}>25 km</option>
+                <option value="50" {% if radius_km == 50 %}selected{% endif %}>50 km</option>
+                <option value="100" {% if radius_km == 100 %}selected{% endif %}>100 km</option>
+            </select>
+        </form>
+    </div>
+    {% if not has_shop_coords %}
+    <p class="small text-muted px-3 pt-2 mb-0">
+        <i class="bi bi-info-circle"></i> {% url 'partners:settings' as settings_url %}{% blocktrans trimmed %}Add your shop's location in your <a href="{{ settings_url }}">Shop Settings</a> to get distance-based matches instead of same-city/pincode matches only.{% endblocktrans %}
+    </p>
+    {% endif %}
+    <div class="card-body p-0">
+        {% if not open_requests %}
+        <p class="text-muted small p-3 mb-0">{% trans "No open requests within range right now." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Condition" %}</th><th>{% trans "Seller Expects" %}</th><th>{% trans "Pickup" %}</th><th>{% trans "Distance" %}</th><th>{% trans "Quick Offer" %} <span class="text-muted small">({% trans "open a lead for the Offer Assistant" %})</span></th></tr></thead>
+                <tbody>
+                    {% for req in open_requests %}
+                    <tr>
+                        <td><a href="{% url 'partners:lead_detail' req.pk %}">{{ req.title }}</a>{% if req.author %} <span class="text-muted small">{% blocktrans trimmed with author=req.author %}by {{ author }}{% endblocktrans %}</span>{% endif %}
+                            {% if req.images.all %}<i class="bi bi-images text-muted" title="{% trans 'Has photos' %}"></i>{% endif %}
+                            {% if req.reserved_for_me %}<div><span class="badge bg-warning text-dark"><i class="bi bi-stopwatch"></i> {% blocktrans trimmed with left=req.time_left %}Reserved for you - {{ left }} left{% endblocktrans %}</span></div>{% endif %}</td>
+                        <td><span class="badge bg-light text-dark border">{{ req.get_condition_display }}</span></td>
+                        <td>{% if req.expected_price %}₹{{ req.expected_price }}{% else %}<span class="text-muted">{% trans "Not specified" %}</span>{% endif %}</td>
+                        <td class="small text-muted">{{ req.pickup_address }}, {{ req.pickup_city }}</td>
+                        <td class="small">
+                            {% if req.distance_km is not None %}<span class="badge bg-secondary">{{ req.distance_km }} km</span>
+                            {% else %}<span class="text-muted">{% trans "Same area" %}</span>{% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="{% url 'partners:make_offer' req.pk %}" class="d-flex align-items-center gap-1">
+                                {% csrf_token %}
+                                <input type="number" step="0.01" min="1" name="offered_price" class="form-control form-control-sm" style="width:100px;" placeholder="{% trans '₹ offer' %}" required>
+                                <input type="text" name="offer_note" class="form-control form-control-sm" style="width:150px;" placeholder="{% trans 'Note (optional)' %}">
+                                <button type="submit" class="btn btn-sm btn-warning text-dark fw-semibold">{% trans "Offer" %}</button>
+                            </form>
+                            {% if req.reserved_for_me %}
+                            <form method="post" action="{% url 'partners:pass_lead' req.pk %}" class="mt-1">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-link text-muted p-0">{% trans "Pass on this lead" %}</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- My active offers / accepted pickups -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-hourglass-split"></i> {% trans "My Active Offers &amp; Pickups" %}</div>
+    <div class="card-body p-0">
+        {% if not my_requests %}
+        <p class="text-muted small p-3 mb-0">{% trans "Nothing in progress. Make an offer above to get started." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Status" %}</th><th>{% trans "My Offer" %}</th><th></th></tr></thead>
+                <tbody>
+                    {% for req in my_requests %}
+                    <tr>
+                        <td><a href="{% url 'partners:lead_detail' req.pk %}">{{ req.title }}</a></td>
+                        <td>{{ req.seller.username }}</td>
+                        <td>
+                            {% if req.status == 'offer_made' %}<span class="badge bg-info text-dark">{% trans "Awaiting Seller" %}</span>
+                            {% elif req.status == 'accepted' %}<span class="badge bg-success">{% trans "Accepted - Collect &amp; Pay" %}</span>
+                                {% if req.has_pickup_schedule %}<div class="small mt-1"><i class="bi bi-calendar-event"></i> {{ req.pickup_summary }}{% if not req.pickup_confirmed %} <span class="text-warning">{% trans "(unconfirmed)" %}</span>{% endif %}</div>
+                                {% else %}<div class="small mt-1"><a href="{% url 'partners:lead_detail' req.pk %}">{% trans "Schedule pickup" %}</a></div>{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>₹{{ req.offered_price }}</td>
+                        <td>
+                            {% if req.status == 'accepted' %}
+                            <form method="post" action="{% url 'partners:mark_paid' req.pk %}" class="d-flex flex-wrap align-items-center gap-1">
+                                {% csrf_token %}
+                                {% if req.pickup_otp %}<input type="text" name="pickup_otp" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" class="form-control form-control-sm" style="width:110px;" placeholder="{% trans "Seller's OTP" %}" title="{% trans '6-digit OTP from the seller' %}" required>{% endif %}
+                                <input type="number" step="0.01" min="1" name="final_price" value="{{ req.offered_price }}" class="form-control form-control-sm" style="width:100px;" title="{% trans 'Amount paid to seller' %}" required>
+                                <div class="form-check form-check-inline small mb-0">
+                                    <input type="checkbox" class="form-check-input" name="list_for_resale" id="list_resale_{{ req.pk }}" checked>
+                                    <label class="form-check-label" for="list_resale_{{ req.pk }}">{% trans "Relist at" %}</label>
+                                </div>
+                                <input type="number" step="0.01" min="1" name="resale_price" class="form-control form-control-sm" style="width:100px;" placeholder="{% trans '₹ resale' %}">
+                                <button type="submit" class="btn btn-sm btn-outline-success">{% trans "Mark Paid" %}</button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted small">{% trans "Waiting on seller's decision" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Commission due -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-cash-coin"></i> {% trans "Commission Due to BookBridge" %}</span>
+        <span class="badge bg-danger">₹{{ total_due }}</span>
+    </div>
+    <div class="card-body p-0">
+        {% if not commissions_due %}
+        <p class="text-muted small p-3 mb-0">{% trans "No commission currently outstanding." %}</p>
+        {% else %}
+        <p class="small text-muted p-2 mb-0">{% trans "Settling debits the amount from your BookBridge wallet balance - top up your wallet first if needed." %}</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Amount" %}</th><th>{% trans "Since" %}</th><th></th></tr></thead>
+                <tbody>
+                    {% for c in commissions_due %}
+                    <tr>
+                        <td>{{ c.buyback_request.title }}</td>
+                        <td>₹{{ c.amount }}</td>
+                        <td class="small text-muted">{{ c.created_at|date:"d M Y" }}</td>
+                        <td>
+                            <form method="post" action="{% url 'partners:settle_commission' c.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-primary">{% trans "Settle from Wallet" %}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Completed -->
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-check2-circle"></i> {% trans "Recently Completed" %}</div>
+    <div class="card-body p-0">
+        {% if not completed %}
+        <p class="text-muted small p-3 mb-0">{% trans "No completed buybacks yet." %}</p>
+        {% else %}
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>{% trans "Book" %}</th><th>{% trans "Seller" %}</th><th>{% trans "Paid" %}</th><th>{% trans "Completed" %}</th><th>{% trans "Resale Listing" %}</th></tr></thead>
+                <tbody>
+                    {% for req in completed %}
+                    <tr>
+                        <td>{{ req.title }}</td>
+                        <td>{{ req.seller.username }}</td>
+                        <td>₹{{ req.final_price }}</td>
+                        <td class="small text-muted">{{ req.completed_at|date:"d M Y" }}</td>
+                        <td class="small">
+                            {% if req.listed_book %}
+                            <a href="{% url 'books:detail' req.listed_book.pk %}">{% blocktrans trimmed with price=req.listed_book.price %}₹{{ price }} - live{% endblocktrans %}</a>
+                            {% else %}<span class="text-muted">{% trans "Not relisted" %}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

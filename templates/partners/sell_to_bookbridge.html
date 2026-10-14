@@ -1,0 +1,615 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Sell to BookBridge" %}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <h4 class="mb-1"><i class="bi bi-cash-stack"></i> {% trans "Sell Directly to BookBridge" %}</h4>
+    <p class="text-muted mb-0">
+        {% blocktrans trimmed %}Skip waiting for a buyer - a nearby BookBridge Shopkeeper Partner will review your book and make you a cash offer. Once you accept, they'll arrange pickup and pay you on the spot.{% endblocktrans %}
+    </p>
+</div>
+
+<div class="card p-3 mb-3 border-success">
+    <h6><i class="bi bi-upc-scan"></i> {% trans "Scan Barcode" %} <span class="badge bg-success">{% trans "Fastest" %}</span></h6>
+    <p class="small text-muted mb-2">
+        {% blocktrans trimmed %}Scan the ISBN barcode on the back cover with your camera, or type the ISBN in manually, and we'll auto-fill the title, author, publisher, and edition below. Faster and more reliable than photo scanning below, since a barcode is an exact number instead of text we have to guess.{% endblocktrans %}
+    </p>
+    <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+        <input type="text" id="isbnInput" class="form-control" style="max-width:240px;" placeholder="{% trans 'Type ISBN, e.g. 9780134685991' %}" inputmode="numeric">
+        <button type="button" id="isbnLookupBtn" class="btn btn-outline-success">
+            <i class="bi bi-search"></i> {% trans "Look Up" %}
+        </button>
+        <button type="button" id="cameraScanBtn" class="btn btn-success">
+            <i class="bi bi-camera-video"></i> {% trans "Scan with Camera" %}
+        </button>
+        <span id="isbnSpinner" class="spinner-border spinner-border-sm text-secondary d-none"></span>
+    </div>
+    <div id="cameraWrap" class="d-none mb-2">
+        <video id="barcodeVideo" class="rounded" style="width:100%; max-width:420px; background:#000;"></video>
+        <div>
+            <button type="button" id="cameraStopBtn" class="btn btn-sm btn-outline-danger mt-2">{% trans "Stop Camera" %}</button>
+        </div>
+        <div class="small text-muted mt-1">{% trans "Hold the barcode on the back cover steady inside the frame." %}</div>
+    </div>
+    <div id="isbnResult" class="mt-2 small"></div>
+</div>
+
+<div class="card p-3 mb-3 border-warning">
+    <h6><i class="bi bi-camera"></i> {% trans "Scan Book Cover" %} <span class="badge bg-warning text-dark">AI</span></h6>
+    <p class="small text-muted mb-2">
+        {% blocktrans trimmed %}No barcode handy? Upload a clear photo of the front cover instead and we'll try to auto-fill the title, author, publisher, ISBN, and edition below using OCR. Always double-check the results before submitting.{% endblocktrans %}
+    </p>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="file" id="scanInput" accept="image/*" class="form-control" style="max-width:320px;">
+        <button type="button" id="scanBtn" class="btn btn-outline-dark">
+            <i class="bi bi-stars"></i> {% trans "Scan Cover" %}
+        </button>
+        <span id="scanSpinner" class="spinner-border spinner-border-sm text-secondary d-none"></span>
+    </div>
+    <div id="scanResult" class="mt-2 small"></div>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="card p-3 mb-3">
+        <h6>{% trans "Book Details" %}</h6>
+        <div class="row g-2">
+            {% for field in form %}
+            {% if field.name == 'pickup_latitude' or field.name == 'pickup_longitude' %}
+                {# handled elsewhere #}
+            {% else %}
+            <div class="col-md-6 field-wrap" data-field="{{ field.name }}">
+                <label class="form-label small">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {{ form.pickup_latitude }}
+        {{ form.pickup_longitude }}
+    </div>
+
+    <div class="card p-3 mb-3 border-danger d-none" id="dupWarningCard">
+        <h6 class="text-danger mb-1"><i class="bi bi-exclamation-triangle"></i> {% trans "Possible Duplicate Request" %}</h6>
+        <div id="dupWarningBody" class="small"></div>
+    </div>
+
+    {% if duplicates %}
+    <div class="card p-3 mb-3 border-danger">
+        <h6 class="text-danger"><i class="bi bi-exclamation-triangle"></i> {% trans "Already Requested" %}</h6>
+        <p class="small mb-2">
+            {% blocktrans trimmed count counter=duplicates|length %}You already have {{ counter }} open buyback request that looks like the same book:{% plural %}You already have {{ counter }} open buyback requests that look like the same book:{% endblocktrans %}
+        </p>
+        <ul class="small">
+            {% for d in duplicates %}
+            <li>
+                <a href="{{ d.get_absolute_url }}" target="_blank">{{ d.title }}</a>
+                - {{ d.get_status_display }}
+            </li>
+            {% endfor %}
+        </ul>
+        <p class="small text-muted mb-2">{% trans "If this is genuinely a different/extra copy, you can submit it anyway." %}</p>
+        <button type="submit" name="confirm_duplicate" value="1" class="btn btn-outline-danger btn-sm">{% trans "Submit Anyway" %}</button>
+    </div>
+    {% endif %}
+
+    <div class="card p-3 mb-3 border-warning field-wrap" data-field="price-recommendation" id="priceRecCard">
+        <h6><i class="bi bi-cash-coin"></i> {% trans "Instant Buyback Quote" %} <span class="badge bg-warning text-dark">{% trans "Estimate" %}</span></h6>
+        <p class="small text-muted mb-2">
+            {% blocktrans trimmed %}See what partners typically pay for a book like this before you submit. We start from the resale price (condition, age, edition, demand, past sales), then subtract the margin and commission a partner needs. Partners set their own offers, so treat this as a guide.{% endblocktrans %}
+        </p>
+        <button type="button" id="priceRecBtn" class="btn btn-outline-dark btn-sm">
+            <i class="bi bi-magic"></i> {% trans "Get Instant Quote" %}
+        </button>
+        <span id="priceRecSpinner" class="spinner-border spinner-border-sm text-secondary d-none ms-2"></span>
+        <div id="priceRecResult" class="mt-3"></div>
+    </div>
+
+    <div class="card p-3 mb-3 field-wrap" data-field="pickup-section" id="pickupSection">
+        <h6><i class="bi bi-geo-alt"></i> {% trans "Pin Pickup Location" %} <span class="text-muted small">({% trans "optional but recommended" %})</span></h6>
+        <p class="small text-muted mb-2">
+            {% blocktrans trimmed %}Search your area, click the map, or use your current location to drop a pin. We'll try to auto-fill the address/city/pincode fields above from it. Helps nearby partners find your book by distance instead of city name alone.{% endblocktrans %}
+        </p>
+        <div class="d-flex gap-2 mb-2 flex-wrap">
+            <input type="text" id="mapSearchInput" class="form-control form-control-sm" style="max-width:280px;" placeholder="{% trans 'Search a locality or address...' %}">
+            <button type="button" id="mapSearchBtn" class="btn btn-sm btn-outline-dark">{% trans "Search" %}</button>
+            <button type="button" id="useMyLocationBtn" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-crosshair"></i> {% trans "Use My Current Location" %}
+            </button>
+        </div>
+        <div id="pickupMap" style="height:320px; border-radius:8px;"></div>
+        <div id="mapStatus" class="small text-muted mt-2"></div>
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h6>{% trans "Photos" %} <span class="text-muted small">({% trans "front cover, back cover, side/spine, sample pages" %})</span></h6>
+        {{ formset.management_form }}
+        <div class="row g-2">
+            {% for f in formset %}
+            <div class="col-md-3 border rounded p-2">
+                {{ f.id }}
+                <label class="form-label small">{% trans "Image" %}</label>
+                {{ f.image }}
+                <label class="form-label small mt-1">{% trans "Angle" %}</label>
+                {{ f.angle }}
+                {% if f.instance.pk %}<div class="form-check mt-1">{{ f.DELETE }} <label class="small">{% trans "Remove" %}</label></div>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-warning text-dark fw-semibold">{% trans "Submit for Buyback" %}</button>
+</form>
+
+{% trans "Looking up address..." as t_lookup_addr %}{% trans "Pin set. Double-check the address fields above." as t_pin_ok %}{% trans "Pin set, but auto address lookup failed - fill address fields manually." as t_pin_fail %}{% trans "Geolocation is not supported by this browser." as t_geo_unsup %}{% trans "Getting your location..." as t_geo_get %}{% trans "Could not get your location - check browser permissions." as t_geo_fail %}{% trans "Searching..." as t_searching %}{% trans "No results found - try a more specific search." as t_no_results %}{% trans "Search failed - please try again." as t_search_fail %}{% trans "Please choose a photo first." as t_choose_photo %}{% trans "Auto-filled what we could detect." as t_detected %}{% trans "Auto-filled what we could detect via {source}." as t_detected_via %}{% trans "Raw text detected" as t_raw %}{% trans "Something went wrong scanning this image." as t_scan_err %}{% trans "Enter or scan an ISBN first." as t_isbn_first %}{% trans "Auto-filled from {source}. Double-check before submitting." as t_from %}{% trans "book database" as t_bookdb %}{% trans "Lookup failed - check your connection and try again." as t_lookup_fail %}{% trans "Barcode scanner failed to load. Check your connection or type the ISBN manually." as t_zxing %}{% trans "Starting camera..." as t_cam_start %}{% trans "No camera found on this device." as t_cam_none %}{% trans "Point the camera at the barcode..." as t_cam_point %}{% trans "Scanned {code} - looking it up..." as t_scanned %}{% trans "Could not access the camera. Check browser permissions, or type the ISBN manually." as t_cam_err %}{% trans "Already requested - this looks like a book you already have an open request for:" as t_dup %}{% trans "Enter a title first so we can find comparable books." as t_need_title %}{% trans "for {qty} copies: {range}" as t_copies %}{% trans "{n} partner in {city} can see your request." as t_pic_1 %}{% trans "{n} partners in {city} can see your request." as t_pic_n %}{% trans "{n} partner is open to new requests." as t_pt_1 %}{% trans "{n} partners are open to new requests." as t_pt_n %}{% trans "{n} partner is open to new requests (none in {city} yet, but partners nearby by distance may still see it)." as t_pt_c1 %}{% trans "{n} partners are open to new requests (none in {city} yet, but partners nearby by distance may still see it)." as t_pt_cn %}{% trans "No partners are open to new requests right now - your request will wait until one is." as t_pt_0 %}{% trans "high confidence" as t_chigh %}{% trans "medium confidence" as t_cmed %}{% trans "low confidence" as t_clow %}{% trans "Partners typically pay" as t_typ %}{% trans "Resale value" as t_resale %}{% trans "Use ₹{price} as my asking price" as t_usemy %}{% trans "How we worked it out" as t_how %}{% trans "Could not fetch a quote right now - try again." as t_quote_fail %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const latInput = document.getElementById('id_pickup_latitude');
+    const lngInput = document.getElementById('id_pickup_longitude');
+    const addressInput = document.getElementById('id_pickup_address');
+    const cityInput = document.getElementById('id_pickup_city');
+    const pincodeInput = document.getElementById('id_pickup_pincode');
+    const statusBox = document.getElementById('mapStatus');
+
+    const startLat = parseFloat(latInput.value) || 20.5937;   // India centroid fallback
+    const startLng = parseFloat(lngInput.value) || 78.9629;
+    const startZoom = latInput.value ? 15 : 5;
+
+    const map = L.map('pickupMap').setView([startLat, startLng], startZoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+        referrerPolicy: 'strict-origin-when-cross-origin',
+    }).addTo(map);
+    window._pickupMapInstance = map;
+    // Re-measure whenever the map box changes size (e.g. revealed after being hidden).
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('pickupMap'));
+    }
+
+    let marker = null;
+    function setMarker(lat, lng) {
+        if (marker) { marker.setLatLng([lat, lng]); } else { marker = L.marker([lat, lng], {draggable: true}).addTo(map); marker.on('dragend', onMarkerMove); }
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
+    }
+    function onMarkerMove(e) {
+        const { lat, lng } = e.target.getLatLng();
+        setMarker(lat, lng);
+        reverseGeocode(lat, lng);
+    }
+    if (latInput.value && lngInput.value) {
+        setMarker(startLat, startLng);
+    }
+
+    async function reverseGeocode(lat, lng) {
+        statusBox.textContent = '{{ t_lookup_addr|escapejs }}';
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=en&lat=${lat}&lon=${lng}`, {referrerPolicy: 'strict-origin-when-cross-origin'});
+            const data = await resp.json();
+            const addr = data.address || {};
+            if (addressInput && !addressInput.value) {
+                addressInput.value = data.display_name ? data.display_name.split(',').slice(0, 3).join(',').trim() : '';
+            }
+            if (cityInput) cityInput.value = addr.city || addr.town || addr.village || addr.county || cityInput.value;
+            if (pincodeInput) pincodeInput.value = addr.postcode || pincodeInput.value;
+            statusBox.textContent = '{{ t_pin_ok|escapejs }}';
+        } catch (err) {
+            statusBox.textContent = '{{ t_pin_fail|escapejs }}';
+        }
+    }
+
+    map.on('click', function (e) {
+        setMarker(e.latlng.lat, e.latlng.lng);
+        reverseGeocode(e.latlng.lat, e.latlng.lng);
+    });
+
+    document.getElementById('useMyLocationBtn').addEventListener('click', function () {
+        if (!navigator.geolocation) {
+            statusBox.textContent = '{{ t_geo_unsup|escapejs }}';
+            return;
+        }
+        statusBox.textContent = '{{ t_geo_get|escapejs }}';
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            const { latitude, longitude } = pos.coords;
+            map.setView([latitude, longitude], 16);
+            setMarker(latitude, longitude);
+            reverseGeocode(latitude, longitude);
+        }, function () {
+            statusBox.textContent = '{{ t_geo_fail|escapejs }}';
+        });
+    });
+
+    async function searchPlace() {
+        const q = document.getElementById('mapSearchInput').value.trim();
+        if (!q) return;
+        statusBox.textContent = '{{ t_searching|escapejs }}';
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=in&accept-language=en&q=${encodeURIComponent(q)}`, {referrerPolicy: 'strict-origin-when-cross-origin'});
+            const results = await resp.json();
+            if (!results.length) {
+                statusBox.textContent = '{{ t_no_results|escapejs }}';
+                return;
+            }
+            const { lat, lon } = results[0];
+            map.setView([lat, lon], 16);
+            setMarker(parseFloat(lat), parseFloat(lon));
+            reverseGeocode(lat, lon);
+        } catch (err) {
+            statusBox.textContent = '{{ t_search_fail|escapejs }}';
+        }
+    }
+    document.getElementById('mapSearchBtn').addEventListener('click', searchPlace);
+    document.getElementById('mapSearchInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); searchPlace(); }
+    });
+
+    // Fix Leaflet tiles rendering wrong-sized if the map div was hidden/laid
+    // out after init (common inside cards/tabs).
+    setTimeout(() => map.invalidateSize(), 200);
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('select, input').forEach(el => el.classList.add('form-control', 'form-control-sm'));
+document.querySelectorAll('select').forEach(el => { el.classList.remove('form-control'); el.classList.add('form-select', 'form-select-sm'); });
+
+const scanBtn = document.getElementById('scanBtn');
+if (scanBtn) {
+    scanBtn.addEventListener('click', async () => {
+        const input = document.getElementById('scanInput');
+        const resultBox = document.getElementById('scanResult');
+        const spinner = document.getElementById('scanSpinner');
+        if (!input.files.length) {
+            resultBox.innerHTML = '<span class="text-danger">{{ t_choose_photo|escapejs }}</span>';
+            return;
+        }
+        spinner.classList.remove('d-none');
+        resultBox.innerHTML = '';
+        const formData = new FormData();
+        formData.append('image', input.files[0]);
+
+        try {
+            const resp = await fetch("{% url 'books:scan_cover' %}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
+                body: formData,
+            });
+            const data = await resp.json();
+            spinner.classList.add('d-none');
+
+            if (data.error) {
+                resultBox.innerHTML = `<span class="text-danger">${bbEsc(data.error)}</span>`;
+                return;
+            }
+
+            const setVal = (id, val) => {
+                if (val) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = val;
+                }
+            };
+            setVal('id_title', data.title);
+            setVal('id_author', data.author);
+            setVal('id_publisher', data.publisher);
+            setVal('id_isbn', data.isbn);
+            setVal('id_edition', data.edition);
+            setVal('id_publication_year', data.publication_year);
+
+            // Also drop the scanned photo into the first "front cover" image slot
+            const firstImageInput = document.querySelector('input[type=file][name$="-image"]');
+            const firstAngleSelect = document.querySelector('select[name$="-angle"]');
+            if (firstImageInput) {
+                const dt = new DataTransfer();
+                dt.items.add(input.files[0]);
+                firstImageInput.files = dt.files;
+            }
+            if (firstAngleSelect) firstAngleSelect.value = 'front';
+
+            let summary = `<div class="text-success"><i class="bi bi-check-circle"></i> ${data.source ? "{{ t_detected_via|escapejs }}".replace('{source}', bbEsc(data.source)) : "{{ t_detected|escapejs }}"}</div>`;
+            if (data.confidence_note) {
+                summary += `<div class="text-warning">${bbEsc(data.confidence_note)}</div>`;
+            }
+            summary += `<details class="mt-1"><summary class="text-muted" style="cursor:pointer;">{{ t_raw|escapejs }}</summary>
+                <pre class="small bg-light p-2 rounded">${bbEsc(data.raw_text || '')}</pre></details>`;
+            resultBox.innerHTML = summary;
+        } catch (err) {
+            spinner.classList.add('d-none');
+            resultBox.innerHTML = '<span class="text-danger">{{ t_scan_err|escapejs }}</span>';
+        }
+    });
+}
+</script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const isbnInput = document.getElementById('isbnInput');
+    const lookupBtn = document.getElementById('isbnLookupBtn');
+    const cameraBtn = document.getElementById('cameraScanBtn');
+    const cameraStopBtn = document.getElementById('cameraStopBtn');
+    const cameraWrap = document.getElementById('cameraWrap');
+    const resultBox = document.getElementById('isbnResult');
+    const spinner = document.getElementById('isbnSpinner');
+    if (!isbnInput) return;  // this card isn't on the page (not shown)
+
+    const setVal = (id, val) => {
+        if (val) {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        }
+    };
+
+    async function lookupISBN(isbn) {
+        if (!isbn || !isbn.trim()) {
+            resultBox.innerHTML = '<span class="text-danger">{{ t_isbn_first|escapejs }}</span>';
+            return;
+        }
+        spinner.classList.remove('d-none');
+        resultBox.innerHTML = '';
+        try {
+            const resp = await fetch("{% url 'books:scan_isbn' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `isbn=${encodeURIComponent(isbn)}`,
+            });
+            const data = await resp.json();
+            spinner.classList.add('d-none');
+
+            if (data.error && !data.found) {
+                resultBox.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> ${bbEsc(data.error)}</span>`;
+                setVal('id_isbn', data.isbn);
+                return;
+            }
+
+            setVal('id_title', data.title);
+            setVal('id_author', data.author);
+            setVal('id_publisher', data.publisher);
+            setVal('id_isbn', data.isbn);
+            setVal('id_edition', data.edition);
+            setVal('id_publication_year', data.publication_year);
+
+            resultBox.innerHTML = `<div class="text-success"><i class="bi bi-check-circle"></i> ${"{{ t_from|escapejs }}".replace('{source}', bbEsc(data.source || "{{ t_bookdb|escapejs }}"))}</div>`;
+        } catch (err) {
+            spinner.classList.add('d-none');
+            resultBox.innerHTML = '<span class="text-danger">{{ t_lookup_fail|escapejs }}</span>';
+        }
+    }
+
+    lookupBtn.addEventListener('click', () => lookupISBN(isbnInput.value));
+    isbnInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); lookupISBN(isbnInput.value); }
+    });
+
+    // --- Live camera barcode scan (ZXing, client-side, no server round-trip
+    // needed to decode the barcode itself - we only hit the server once we
+    // have the actual ISBN number, to look up its metadata). ---
+    let codeReader = null;
+
+    async function startCameraScan() {
+        if (typeof ZXing === 'undefined') {
+            resultBox.innerHTML = '<span class="text-danger">{{ t_zxing|escapejs }}</span>';
+            return;
+        }
+        cameraWrap.classList.remove('d-none');
+        resultBox.innerHTML = '<span class="text-muted">{{ t_cam_start|escapejs }}</span>';
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        try {
+            const devices = await codeReader.listVideoInputDevices();
+            if (!devices.length) {
+                resultBox.innerHTML = '<span class="text-danger">{{ t_cam_none|escapejs }}</span>';
+                return;
+            }
+            // Prefer a rear/back/environment-facing camera if the browser labels one -
+            // that's the one pointed at the book, not at the seller's face.
+            const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+            const deviceId = backCam ? backCam.deviceId : devices[devices.length - 1].deviceId;
+
+            resultBox.innerHTML = '<span class="text-muted">{{ t_cam_point|escapejs }}</span>';
+            codeReader.decodeFromVideoDevice(deviceId, 'barcodeVideo', (result, err) => {
+                if (result) {
+                    const scanned = result.getText();
+                    stopCameraScan();
+                    isbnInput.value = scanned;
+                    resultBox.innerHTML = `<span class="text-success">${"{{ t_scanned|escapejs }}".replace('{code}', bbEsc(scanned))}</span>`;
+                    lookupISBN(scanned);
+                }
+                // NotFoundException fires continuously while no barcode is in view - expected, not an error.
+            });
+        } catch (err) {
+            resultBox.innerHTML = '<span class="text-danger">{{ t_cam_err|escapejs }}</span>';
+        }
+    }
+
+    function stopCameraScan() {
+        if (codeReader) {
+            codeReader.reset();
+            codeReader = null;
+        }
+        cameraWrap.classList.add('d-none');
+    }
+
+    cameraBtn.addEventListener('click', startCameraScan);
+    cameraStopBtn.addEventListener('click', stopCameraScan);
+    window.addEventListener('beforeunload', stopCameraScan);
+})();
+</script>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const card = document.getElementById('dupWarningCard');
+    if (!card) return;
+    const body = document.getElementById('dupWarningBody');
+    const titleInput = document.getElementById('id_title');
+    const isbnInput = document.getElementById('id_isbn');
+    const authorInput = document.getElementById('id_author');
+    const bookIdInput = document.getElementById('id_book_id');
+    let debounceTimer = null;
+
+    async function checkDuplicate() {
+        const title = titleInput ? titleInput.value.trim() : '';
+        const isbn = isbnInput ? isbnInput.value.trim() : '';
+        if (!title && !isbn) {
+            card.classList.add('d-none');
+            return;
+        }
+        const params = new URLSearchParams({
+            title: title,
+            isbn: isbn,
+            author: authorInput ? authorInput.value : '',
+            book_id: bookIdInput ? bookIdInput.value : '',
+        });
+        try {
+            const resp = await fetch("{% url 'partners:check_duplicate' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString(),
+            });
+            const data = await resp.json();
+            if (data.duplicate) {
+                const items = data.listings.map(l =>
+                    `<li><a href="${bbEsc(l.url)}" target="_blank">${bbEsc(l.title)}</a> - ${bbEsc(l.status)}</li>`
+                ).join('');
+                body.innerHTML = `{{ t_dup|escapejs }}<ul class="mb-0">${items}</ul>`;
+                card.classList.remove('d-none');
+            } else {
+                card.classList.add('d-none');
+            }
+        } catch (err) {
+            // Live check is a convenience, not a hard requirement - the
+            // server re-checks on submit either way, so fail silently.
+        }
+    }
+
+    [titleInput, isbnInput, authorInput].forEach(el => {
+        if (!el) return;
+        el.addEventListener('blur', checkDuplicate);
+        el.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkDuplicate, 600);
+        });
+    });
+
+    // If the server already flagged duplicates on this render (JS-disabled
+    // fallback path), no need to also show the live-check card on top.
+    {% if duplicates %}card.classList.add('d-none');{% endif %}
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const btn = document.getElementById('priceRecBtn');
+    if (!btn) return;
+    const resultBox = document.getElementById('priceRecResult');
+    const spinner = document.getElementById('priceRecSpinner');
+
+    const get = (id) => document.getElementById(id);
+    const val = (id) => { const el = get(id); return el ? el.value : ''; };
+    const esc = (t) => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const rupee = '\u20b9';
+
+    async function fetchQuote() {
+        if (!val('id_title').trim()) {
+            resultBox.innerHTML = '<span class="text-danger small">{{ t_need_title|escapejs }}</span>';
+            return;
+        }
+        spinner.classList.remove('d-none');
+
+        const params = new URLSearchParams({
+            title: val('id_title'), author: val('id_author'), isbn: val('id_isbn'),
+            edition: val('id_edition'), condition: val('id_condition'),
+            publication_year: val('id_publication_year'), original_price: val('id_original_price'),
+            category: val('id_category'), subject: val('id_subject'),
+            quantity: val('id_quantity'), pickup_city: val('id_pickup_city'),
+            expected_price: val('id_expected_price'),
+        });
+
+        try {
+            const resp = await fetch("{% url 'partners:buyback_quote' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: params.toString(),
+            });
+            const data = await resp.json();
+            spinner.classList.add('d-none');
+            if (data.error) {
+                resultBox.innerHTML = `<span class="text-danger small">${esc(data.error)}</span>`;
+                return;
+            }
+
+            const qty = data.quantity;
+            const totalLine = qty > 1
+                ? `<div class="small text-muted">${esc("{{ t_copies|escapejs }}".replace('{qty}', qty).replace('{range}', rupee + data.total_low + '\u2013' + rupee + data.total_high))}</div>` : '';
+            let partnersLine;
+            if (data.city && data.partners_in_city > 0) {
+                partnersLine = '<i class="bi bi-shop"></i> ' + (data.partners_in_city > 1 ? "{{ t_pic_n|escapejs }}" : "{{ t_pic_1|escapejs }}").replace('{n}', bbEsc(data.partners_in_city)).replace('{city}', esc(data.city));
+            } else if (data.partners_total > 0) {
+                const many = data.partners_total > 1;
+                const msg = data.city ? (many ? "{{ t_pt_cn|escapejs }}" : "{{ t_pt_c1|escapejs }}") : (many ? "{{ t_pt_n|escapejs }}" : "{{ t_pt_1|escapejs }}");
+                partnersLine = '<i class="bi bi-shop"></i> ' + msg.replace('{n}', bbEsc(data.partners_total)).replace('{city}', esc(data.city || ''));
+            } else {
+                partnersLine = '<i class="bi bi-shop"></i> {{ t_pt_0|escapejs }}';
+            }
+            const conf = {high: 'success', medium: 'warning', low: 'secondary'}[data.confidence] || 'secondary';
+            const confLabels = {high: "{{ t_chigh|escapejs }}", medium: "{{ t_cmed|escapejs }}", low: "{{ t_clow|escapejs }}"};
+            const factorsHtml = data.factors.map(f => `<li><strong>${esc(f.label)}:</strong> ${esc(f.detail)}</li>`).join('');
+
+            resultBox.innerHTML = `
+                <div class="d-flex flex-wrap gap-4 align-items-end mb-2">
+                    <div>
+                        <div class="text-muted small">{{ t_typ|escapejs }}</div>
+                        <div class="fs-3 fw-semibold text-success">${rupee}${esc(data.offer_low)}\u2013${rupee}${esc(data.offer_high)}</div>
+                        ${totalLine}
+                    </div>
+                    <div>
+                        <div class="text-muted small">{{ t_resale|escapejs }}</div>
+                        <div class="fs-5">${rupee}${esc(data.resale_low)}\u2013${rupee}${esc(data.resale_high)}</div>
+                    </div>
+                    <div><span class="badge bg-${conf}">${esc(confLabels[data.confidence] || (data.confidence + " confidence"))}</span></div>
+                    <button type="button" id="usePriceBtn" class="btn btn-success btn-sm mb-1">
+                        ${"{{ t_usemy|escapejs }}".replace('{price}', esc(data.offer_mid))}
+                    </button>
+                </div>
+                ${data.note ? `<div class="alert alert-light border small py-2 mb-2">${esc(data.note)}</div>` : ''}
+                <div class="small mb-2">${partnersLine}</div>
+                <div class="small text-muted mb-1">{{ t_how|escapejs }}</div>
+                <ul class="small mb-0">${factorsHtml}</ul>
+            `;
+            get('usePriceBtn').addEventListener('click', () => {
+                const priceInput = get('id_expected_price');
+                if (priceInput) priceInput.value = data.offer_mid;
+                fetchQuote();  // refresh the "your ask vs typical" note
+            });
+        } catch (err) {
+            spinner.classList.add('d-none');
+            resultBox.innerHTML = '<span class="text-danger small">{{ t_quote_fail|escapejs }}</span>';
+        }
+    }
+
+    let hasFetchedOnce = false, timer = null;
+    btn.addEventListener('click', () => { hasFetchedOnce = true; fetchQuote(); });
+
+    // Once a quote has been shown, keep it in step with the form.
+    ['id_condition', 'id_edition', 'id_publication_year', 'id_original_price',
+     'id_quantity', 'id_pickup_city', 'id_expected_price'].forEach(id => {
+        const el = get(id);
+        if (!el) return;
+        el.addEventListener('change', () => {
+            if (!hasFetchedOnce) return;
+            clearTimeout(timer);
+            timer = setTimeout(fetchQuote, 400);
+        });
+    });
+})();
+</script>
+{% endblock %}

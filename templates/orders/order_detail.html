@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+{% trans "applied" as applied_label %}{% trans "Assigned by Shiprocket" as assigned_label %}
+<div class="d-flex justify-content-between align-items-start flex-wrap">
+    <div>
+        <h4>{% blocktrans trimmed with id=order.order_id|stringformat:"s"|slice:":8" %}Order #{{ id }}{% endblocktrans %}</h4>
+        <p class="text-muted mb-0">{{ order.book.title }}</p>
+    </div>
+    <div class="text-end">
+        {% if order.is_rental %}<span class="badge bg-warning text-dark fs-6 me-1">{% blocktrans trimmed with days=order.rental_days %}Rental &middot; {{ days }} Days{% endblocktrans %}</span>{% endif %}
+        <span class="badge bg-primary fs-6">{{ order.get_status_display }}</span>
+    </div>
+</div>
+
+{% if order.is_rental and order.status == 'delivered' %}
+<div class="alert {% if order.is_overdue %}alert-danger{% else %}alert-warning{% endif %} small mt-3 mb-0">
+    <i class="bi bi-clock-history"></i>
+    {% if order.is_overdue %}
+        {% blocktrans trimmed with date=order.rental_due_date %}This rental was due back on {{ date }} - please return it as soon as possible.{% endblocktrans %}
+    {% else %}
+        {% blocktrans trimmed with date=order.rental_due_date %}Return due by {{ date }}.{% endblocktrans %}
+    {% endif %}
+    {% if not is_seller %}
+    <form method="post" action="{% url 'orders:mark_returned' order.order_id %}" class="d-inline">
+        {% csrf_token %}
+        <button class="btn btn-sm btn-outline-dark ms-2">{% trans "Mark Book as Returned" %}</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card p-4 my-4">
+    {% if order.is_digital %}
+    <div class="d-flex text-center">
+        <div class="timeline-step {% if order.status != 'cancelled' %}done{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-check"></i></div>
+            <div class="small">{% trans "Placed" %}</div>
+        </div>
+        <div class="timeline-step {% if order.status == 'delivered' %}done{% elif order.status == 'placed' %}active{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-cloud-arrow-down"></i></div>
+            <div class="small">{% trans "Delivered" %}</div>
+        </div>
+    </div>
+    {% else %}
+    <div class="d-flex text-center">
+        <div class="timeline-step {% if order.status != 'cancelled' %}done{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-check"></i></div>
+            <div class="small">{% trans "Placed" %}</div>
+        </div>
+        <div class="timeline-step {% if order.status in 'accepted,shipped,out_for_delivery,delivered' %}done{% elif order.status == 'placed' %}active{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-check2"></i></div>
+            <div class="small">{% trans "Accepted" %}</div>
+        </div>
+        <div class="timeline-step {% if order.status in 'shipped,out_for_delivery,delivered' %}done{% elif order.status == 'accepted' %}active{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-box-seam"></i></div>
+            <div class="small">{% trans "Shipped" %}</div>
+        </div>
+        <div class="timeline-step {% if order.status in 'out_for_delivery,delivered' %}done{% elif order.status == 'shipped' %}active{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-truck"></i></div>
+            <div class="small">{% trans "Out for Delivery" %}</div>
+        </div>
+        <div class="timeline-step {% if order.status == 'delivered' %}done{% elif order.status == 'out_for_delivery' %}active{% endif %}">
+            <div class="timeline-line"></div><div class="dot"><i class="bi bi-house-check"></i></div>
+            <div class="small">{% trans "Delivered" %}</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if order.is_digital %}
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6><i class="bi bi-file-earmark-pdf"></i> {% trans "Digital Download" %}</h6>
+            {% if order.status == 'delivered' %}
+                <a href="{% url 'orders:download_digital' order.order_id %}" class="btn btn-success">
+                    <i class="bi bi-download"></i> {% blocktrans trimmed with type=order.book.get_digital_type_display %}Download {{ type }}{% endblocktrans %}
+                </a>
+                <div class="small text-muted mt-2">{% blocktrans trimmed with email=order.buyer.email %}We also emailed this link to {{ email }}.{% endblocktrans %}</div>
+            {% else %}
+                <div class="small text-muted">{% trans "Your download will unlock here as soon as payment clears." %}</div>
+            {% endif %}
+        </div>
+        <div class="card p-3 mt-3">
+            <h6>{% trans "Payment" %}</h6>
+            {% if order.payment %}
+            <div class="small">{% blocktrans trimmed with method=order.get_payment_method_display %}Method: {{ method }}{% endblocktrans %}</div>
+            <div class="small">{% blocktrans trimmed with price=order.final_price %}Price: ₹{{ price }}{% endblocktrans %}</div>
+            {% if order.coupon_discount > 0 %}
+            <div class="small text-success">{% blocktrans trimmed with code=order.coupon.code|default:applied_label discount=order.coupon_discount %}Coupon discount ({{ code }}): −₹{{ discount }}{% endblocktrans %}</div>
+            {% endif %}
+            <div class="small fw-semibold">{% blocktrans trimmed with amount=order.total_amount %}Amount: ₹{{ amount }}{% endblocktrans %}</div>
+            <div class="small">{% blocktrans trimmed with status=order.payment.get_status_display %}Status: <span class="badge bg-light text-dark border">{{ status }}</span>{% endblocktrans %}</div>
+            {% if order.payment.status != 'created' and order.payment.status != 'failed' %}
+            <a href="{% url 'orders:download_invoice' order.order_id %}" class="btn btn-sm btn-outline-secondary mt-2">
+                <i class="bi bi-receipt"></i> {% trans "Download Invoice" %}
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        {% if is_seller %}
+        <div class="card p-3">
+            <h6>{% trans "Seller" %}</h6>
+            <div class="text-muted small">{% trans "Nothing to ship - payout is released once payment clears." %}</div>
+            <div class="small text-muted mt-2">{% blocktrans trimmed with payout=order.seller_payout percent=order.platform_commission_percent %}Payout: ₹{{ payout }} (after {{ percent }}% commission){% endblocktrans %}</div>
+            {% if order.payout %}<div class="small mt-1">{% trans "Payout status" %}: {% include 'payouts/_status_badge.html' with payout=order.payout %}{% if order.payout.utr %} <span class="text-muted">UTR {{ order.payout.utr }}</span>{% endif %} &middot; <a href="{% url 'payouts:mine' %}">{% trans "Payouts &amp; statements" %}</a></div>{% endif %}
+        </div>
+        {% else %}
+        <div class="card p-3">
+            <h6>{% trans "Buyer Actions" %}</h6>
+            {% if order.status == 'delivered' %}
+                {% if not review %}
+                    <a href="{% url 'orders:leave_review' order.order_id %}" class="btn btn-sm btn-outline-primary">{% trans "Leave a Review" %}</a>
+                {% endif %}
+            {% else %}
+                <div class="text-muted small">{% trans "Waiting for payment confirmation." %}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if review %}
+        <div class="card p-3 mt-3">
+            <h6>{% trans "Your Review" %}</h6>
+            <div class="small text-warning">★ {% blocktrans trimmed with seller=review.seller_rating book=review.book_quality_rating delivery=review.delivery_rating %}Seller {{ seller }}/5 &middot; Book {{ book }}/5 &middot; Delivery {{ delivery }}/5{% endblocktrans %}</div>
+            <div class="small">{{ review.comment }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6>{% trans "Shipment" %}</h6>
+            {% if order.shipment %}
+                {% if order.shipment.tracking_id %}
+                <div class="small">{% blocktrans trimmed with courier=order.shipment.courier_name|default:assigned_label %}Courier: <strong>{{ courier }}</strong>{% endblocktrans %}</div>
+                <div class="small">{% blocktrans trimmed with id=order.shipment.tracking_id %}AWB / Tracking No: <strong>{{ id }}</strong>{% endblocktrans %}</div>
+                <div class="small">{% blocktrans trimmed with status=order.shipment.get_status_display %}Status: {{ status }}{% endblocktrans %}</div>
+                {% if order.shipment.tracking_synced_at %}
+                <div class="small text-muted">{% blocktrans trimmed with date=order.shipment.tracking_synced_at %}Last synced: {{ date }}{% endblocktrans %}</div>
+                {% endif %}
+                <form method="post" action="{% url 'orders:refresh_tracking' order.order_id %}" class="mt-2">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-secondary">{% trans "Refresh Tracking" %}</button>
+                </form>
+                {% if tracking_events %}
+                <div class="mt-3 small">
+                    <div class="fw-semibold mb-1">{% trans "Tracking history" %}</div>
+                    <ul class="list-unstyled mb-0" style="max-height:200px; overflow-y:auto;">
+                        {% for ev in tracking_events %}
+                        <li class="mb-2 border-start ps-2">
+                            <div>{{ ev.activity }}</div>
+                            <div class="text-muted">{{ ev.location }} &middot; {{ ev.date }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="small text-muted">{% trans "Courier not yet assigned (Shiprocket may not be configured, or assignment is pending)." %}</div>
+                {% endif %}
+            {% endif %}
+            <div class="small mt-2">{% blocktrans trimmed with address=order.delivery_address city=order.delivery_city pincode=order.delivery_pincode %}Deliver to: {{ address }}, {{ city }} - {{ pincode }}{% endblocktrans %}</div>
+        </div>
+        <div class="card p-3 mt-3">
+            <h6>{% trans "Payment" %}</h6>
+            {% if order.payment %}
+            <div class="small">{% blocktrans trimmed with method=order.get_payment_method_display %}Method: {{ method }}{% endblocktrans %}</div>
+            <div class="small">{% if order.is_rental %}{% blocktrans trimmed with days=order.rental_days %}Rental price ({{ days }} days){% endblocktrans %}{% else %}{% trans "Book price" %}{% endif %}: ₹{{ order.final_price }}</div>
+            <div class="small">{% blocktrans trimmed with charge=order.delivery_charge %}Delivery charge: ₹{{ charge }}{% endblocktrans %}</div>
+            {% if order.coupon_discount > 0 %}
+            <div class="small text-success">{% blocktrans trimmed with code=order.coupon.code|default:applied_label discount=order.coupon_discount %}Coupon discount ({{ code }}): −₹{{ discount }}{% endblocktrans %}</div>
+            {% endif %}
+            <div class="small fw-semibold">{% blocktrans trimmed with amount=order.total_amount %}Amount: ₹{{ amount }}{% endblocktrans %}</div>
+            <div class="small">{% blocktrans trimmed with status=order.payment.get_status_display %}Status: <span class="badge bg-light text-dark border">{{ status }}</span>{% endblocktrans %}</div>
+            {% if order.payment.status != 'created' and order.payment.status != 'failed' %}
+            <a href="{% url 'orders:download_invoice' order.order_id %}" class="btn btn-sm btn-outline-secondary mt-2">
+                <i class="bi bi-receipt"></i> {% trans "Download Invoice" %}
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        {% if is_seller %}
+        <div class="card p-3">
+            <h6>{% trans "Seller Actions" %}</h6>
+            {% if order.status == 'placed' %}
+                <form method="post" action="{% url 'orders:update_status' order.order_id %}">
+                    {% csrf_token %}<input type="hidden" name="status" value="accepted">
+                    <button class="btn btn-sm btn-primary">{% trans "Accept Order" %}</button>
+                </form>
+            {% elif order.status == 'accepted' %}
+                <form method="post" action="{% url 'orders:update_status' order.order_id %}">
+                    {% csrf_token %}<input type="hidden" name="status" value="shipped">
+                    <button class="btn btn-sm btn-primary">{% trans "Mark as Shipped" %}{% if order.shipment.courier_name %} {% blocktrans trimmed with courier=order.shipment.courier_name %}(hand to {{ courier }}){% endblocktrans %}{% endif %}</button>
+                </form>
+            {% elif order.status == 'shipped' %}
+                <form method="post" action="{% url 'orders:update_status' order.order_id %}">
+                    {% csrf_token %}<input type="hidden" name="status" value="out_for_delivery">
+                    <button class="btn btn-sm btn-primary">{% trans "Mark Out for Delivery" %}</button>
+                </form>
+            {% else %}
+                <div class="text-muted small">{% trans "No further action needed." %}</div>
+            {% endif %}
+            <div class="small text-muted mt-2">{% blocktrans trimmed with payout=order.seller_payout percent=order.platform_commission_percent %}Payout on delivery: ₹{{ payout }} (after {{ percent }}% commission){% endblocktrans %}</div>
+            {% if order.payout %}<div class="small mt-1">{% trans "Payout status" %}: {% include 'payouts/_status_badge.html' with payout=order.payout %}{% if order.payout.utr %} <span class="text-muted">UTR {{ order.payout.utr }}</span>{% endif %} &middot; <a href="{% url 'payouts:mine' %}">{% trans "Payouts &amp; statements" %}</a></div>{% endif %}
+        </div>
+        {% else %}
+        <div class="card p-3">
+            <h6>{% trans "Buyer Actions" %}</h6>
+            {% if order.status == 'out_for_delivery' %}
+                <form method="post" action="{% url 'orders:confirm_delivery' order.order_id %}" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input class="form-control form-control-sm" name="otp" placeholder="{% trans 'Enter delivery OTP' %}" style="max-width:160px;">
+                    <button class="btn btn-sm btn-success">{% trans "Confirm Delivery" %}</button>
+                </form>
+                <div class="small text-muted mt-1">
+                    {% if twilio_configured %}
+                        {% trans "OTP sent to your registered phone via WhatsApp/SMS." %}
+                    {% else %}
+                        {% blocktrans trimmed with otp=order.shipment.delivery_otp %}Demo OTP: {{ otp }} <span class="text-muted">(SMS/WhatsApp not configured on this server - showing here instead)</span>{% endblocktrans %}
+                    {% endif %}
+                </div>
+            {% elif order.status == 'delivered' %}
+                {% if not review %}
+                    <a href="{% url 'orders:leave_review' order.order_id %}" class="btn btn-sm btn-outline-primary">{% trans "Leave a Review" %}</a>
+                {% endif %}
+                {% if not return_request %}
+                    <a href="{% url 'orders:request_return' order.order_id %}" class="btn btn-sm btn-outline-danger">{% trans "Request Return" %}</a>
+                {% endif %}
+            {% else %}
+                <div class="text-muted small">{% trans "Waiting for the seller to process your order." %}</div>
+            {% endif %}
+            {% if can_dispute %}
+                <div class="mt-2"><a href="{% url 'disputes:open' order.order_id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-flag"></i> {% trans "Report a problem / open a dispute" %}</a></div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if review %}
+        <div class="card p-3 mt-3">
+            <h6>{% trans "Your Review" %}</h6>
+            <div class="small text-warning">★ {% blocktrans trimmed with seller=review.seller_rating book=review.book_quality_rating delivery=review.delivery_rating %}Seller {{ seller }}/5 &middot; Book {{ book }}/5 &middot; Delivery {{ delivery }}/5{% endblocktrans %}</div>
+            <div class="small">{{ review.comment }}</div>
+        </div>
+        {% endif %}
+        {% if dispute %}
+        <div class="card p-3 mt-3">
+            <h6>{% blocktrans trimmed with ref=dispute.reference %}Dispute {{ ref }}{% endblocktrans %}</h6>
+            <div class="small">{{ dispute.get_category_display }} &middot; {% include 'disputes/_status_badge.html' with dispute=dispute %}</div>
+            <a href="{% url 'disputes:detail' dispute.pk %}" class="btn btn-sm btn-outline-primary mt-2 align-self-start">{% if is_seller and dispute.is_active %}{% trans "Reply to dispute" %}{% else %}{% trans "View dispute" %}{% endif %}</a>
+        </div>
+        {% endif %}
+        {% if return_request %}
+        <div class="card p-3 mt-3">
+            <h6>{% trans "Return Request" %}</h6>
+            <div class="small">{% blocktrans trimmed with reason=return_request.get_reason_display %}Reason: {{ reason }}{% endblocktrans %}</div>
+            <div class="small">{% blocktrans trimmed with status=return_request.get_status_display %}Status: {{ status }}{% endblocktrans %}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

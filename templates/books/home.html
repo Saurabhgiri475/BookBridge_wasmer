@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize i18n %}
+{% block content %}
+<div class="hero mb-4">
+    <div class="row align-items-center">
+        <div class="col-lg-7">
+            <h1 class="fw-bold">{% trans "Give your old books a second life." %}</h1>
+            <p class="lead">{% trans "Buy and sell CBSE, ICSE, JEE/NEET, UPSC, and college textbooks — with doorstep pickup & delivery." %}</p>
+            <form action="{% url 'books:list' %}" method="get" class="d-flex mt-3">
+                <input type="hidden" name="ai" value="1">
+                <input class="form-control form-control-lg me-2" name="q" placeholder="{% trans 'Try: "I need DBMS book for B.Tech 3rd semester AKTU"' as bb_ph %}{{ bb_ph|force_escape }}">
+                <button class="btn btn-warning btn-lg text-dark fw-semibold" type="submit"><i class="bi bi-stars"></i> {% trans "AI Search" %}</button>
+            </form>
+            <div class="mt-3">
+                <a href="{% url 'books:add' %}" class="btn btn-outline-light me-2">{% trans "Sell a Book" %}</a>
+                <a href="{% url 'books:list' %}?listing_type=digital" class="btn btn-outline-light me-2"><i class="bi bi-file-earmark-pdf"></i> {% trans "Browse Digital Books" %}</a>
+                <a href="{% url 'books:add_request' %}" class="btn btn-outline-light">{% trans "Can't find a book? Request it" %}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4 border-0" style="background: linear-gradient(120deg, #e8f4ea, #eef1f5);">
+    <div class="card-body p-4">
+        <h5 class="fw-bold mb-3">🌱 {% trans "Our Community Impact" %}</h5>
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center">
+                    <div class="stat-value">📚 {{ community_impact.books_reused|intcomma }}</div>
+                    <div class="small text-muted">{% trans "Books Reused" %}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center">
+                    <div class="stat-value">🌳 {{ community_impact.trees_saved|floatformat:0|intcomma }}</div>
+                    <div class="small text-muted">{% trans "Trees Saved" %}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center">
+                    <div class="stat-value">💧 {{ community_impact.water_saved_litres|floatformat:1|intcomma }} L</div>
+                    <div class="small text-muted">{% trans "Water Saved" %}</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="stat-card text-center">
+                    <div class="stat-value">⚡ {{ community_impact.energy_saved_kwh|floatformat:0|intcomma }}</div>
+                    <div class="small text-muted">{% trans "kWh Energy Saved" %}</div>
+                </div>
+            </div>
+        </div>
+        <p class="small text-muted mt-3 mb-0">♻ {% trans "Together we're making education more affordable and sustainable." %} <a href="{% url 'books:sustainability' %}">{% trans "See the full breakdown" %} &rarr;</a> &middot; {% trans "Have books you don't need?" %} <a href="{% url 'donations:home' %}">{% trans "Donate them and get a certificate" %} &rarr;</a></p>
+    </div>
+</div>
+
+<h5 class="mb-2">{% trans "Browse by Category" %}</h5>
+<div class="mb-4">
+    {% for cat in categories %}
+        <a class="category-pill" href="{% url 'books:list' %}?category={{ cat.id }}">{{ cat.name }}</a>
+    {% empty %}
+        <span class="text-muted small">{% trans "No categories yet — add some from the admin panel." %}</span>
+    {% endfor %}
+</div>
+
+{% if recommended %}
+<h5 class="mb-3"><i class="bi bi-magic"></i> {% trans "Recommended for you" %}</h5>
+<div class="row g-3 mb-4">
+    {% for book in recommended %}{% include 'books/_book_card.html' %}{% endfor %}
+</div>
+{% endif %}
+
+{% if featured %}
+<h5 class="mb-3"><i class="bi bi-star-fill text-warning"></i> {% trans "Featured Listings" %}</h5>
+<div class="row g-3 mb-4">
+    {% for book in featured %}{% include 'books/_book_card.html' %}{% endfor %}
+</div>
+{% endif %}
+
+{% if digital_recent %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-file-earmark-pdf text-info"></i> {% trans "Digital Books" %} <span class="text-muted small fw-normal">{% trans "PDF Notes &middot; Handwritten Notes &middot; Question Papers &middot; Lab Manuals" %}</span></h5>
+    <a href="{% url 'books:list' %}?listing_type=digital" class="small">{% trans "See all" %} &rarr;</a>
+</div>
+<div class="mb-2">
+    {% for value, label in digital_type_choices %}
+        <a class="category-pill" href="{% url 'books:list' %}?listing_type=digital&digital_type={{ value }}">{{ label }}</a>
+    {% endfor %}
+</div>
+<div class="row g-3 mb-4">
+    {% for book in digital_recent %}{% include 'books/_book_card.html' %}{% endfor %}
+</div>
+{% endif %}
+
+<h5 class="mb-3">{% trans "Recently Listed" %}</h5>
+<div class="row g-3">
+    {% for book in recent %}{% include 'books/_book_card.html' %}
+    {% empty %}
+        <p class="text-muted">{% trans "No books listed yet." %} <a href="{% url 'books:add' %}">{% trans "Be the first to sell one!" %}</a></p>
+    {% endfor %}
+</div>
+{% endblock %}

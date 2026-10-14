@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block content %}
+<h4 class="mb-3">{% trans "Requests That Might Match Your Books" %}</h4>
+<h6 class="text-success">{% trans "Likely matches" %}</h6>
+<div class="row g-3 mb-4">
+    {% for r in matched %}
+    <div class="col-md-6"><div class="card p-3 border-success">
+        <h6>{{ r.title }}</h6><div class="small text-muted">{{ r.description }}</div>
+        <div class="small">{% blocktrans trimmed with name=r.buyer|public_name %}Buyer: {{ name }}{% endblocktrans %} {% if r.max_price %}&middot; {% blocktrans trimmed with price=r.max_price %}Budget ₹{{ price }}{% endblocktrans %}{% endif %}</div>
+    </div></div>
+    {% empty %}<p class="text-muted">{% trans "No direct matches found yet." %}</p>{% endfor %}
+</div>
+<h6>{% trans "All open requests" %}</h6>
+<div class="row g-3">
+    {% for r in other %}
+    <div class="col-md-6"><div class="card p-3">
+        <h6>{{ r.title }}</h6><div class="small text-muted">{{ r.description }}</div>
+        <div class="small">{% blocktrans trimmed with name=r.buyer|public_name %}Buyer: {{ name }}{% endblocktrans %} {% if r.max_price %}&middot; {% blocktrans trimmed with price=r.max_price %}Budget ₹{{ price }}{% endblocktrans %}{% endif %}</div>
+    </div></div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Set up two-factor authentication" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-8 col-lg-6">
+<div class="card p-4">
+    <div class="text-center mb-3">
+        <div class="display-6 text-warning"><i class="bi bi-shield-lock"></i></div>
+        <h4 class="mb-1">{% trans "Set up two-factor authentication" %}</h4>
+        <p class="text-muted small mb-0">{% trans "Staff accounts need a second step. Scan the code with an authenticator app (Google Authenticator, Authy, 1Password...), then enter the 6-digit code it shows." %}</p>
+    </div>
+    <div class="text-center my-3" role="img" aria-label="{% trans 'QR code for your authenticator app' %}">{{ qr_svg|safe }}</div>
+    <p class="small text-center text-muted mb-1">{% trans "Can't scan? Enter this key in your app (time-based):" %}</p>
+    <p class="text-center"><code class="user-select-all">{{ secret_grouped }}</code></p>
+    <form method="post" autocomplete="off">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <label class="form-label" for="codeInput">{% trans "6-digit code" %}</label>
+        <input type="text" name="code" id="codeInput" class="form-control form-control-lg text-center mb-3" inputmode="numeric"
+               pattern="[0-9 ]{6,7}" maxlength="7" autocomplete="one-time-code" placeholder="------" required autofocus style="letter-spacing: .5em;">
+        <button class="btn btn-warning text-dark fw-semibold w-100">{% trans "Turn on two-factor authentication" %}</button>
+    </form>
+</div>
+</div>
+</div>
+{% endblock %}

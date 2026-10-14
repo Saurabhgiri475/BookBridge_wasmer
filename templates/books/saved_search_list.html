@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="bi bi-bell"></i> {% trans "My Saved Searches" %}</h4>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'books:list' %}">{% trans "Browse books" %}</a>
+</div>
+<p class="text-muted small">{% trans "We'll email you as soon as a newly-listed book matches one of these." %}</p>
+<div class="row g-3">
+    {% for search in searches %}
+    <div class="col-md-6">
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h6 class="mb-1">{{ search.label }}</h6>
+                    <div class="small text-muted">
+                        {% if search.category %}<span class="badge bg-light text-dark border">{{ search.category.name }}</span>{% endif %}
+                        {% if search.condition %}<span class="badge bg-light text-dark border">{{ search.get_condition_display }}</span>{% endif %}
+                        {% if search.min_price or search.max_price %}
+                            {% trans "any" as any_label %}
+                            <span class="badge bg-light text-dark border">
+                                ₹{{ search.min_price|default:"0" }} - {{ search.max_price|default:any_label }}
+                            </span>
+                        {% endif %}
+                        {% if search.listing_type %}<span class="badge bg-light text-dark border">{{ search.get_listing_type_display }}</span>{% endif %}
+                    </div>
+                    <div class="small text-muted mt-1">{% blocktrans trimmed with date=search.created_at|date:"M d, Y" %}Saved {{ date }}{% endblocktrans %}</div>
+                </div>
+                <form method="post" action="{% url 'books:delete_saved_search' search.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" type="submit" title="{% trans 'Remove' %}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+        <p class="text-muted">
+            {% url 'books:list' as list_url %}{% blocktrans trimmed %}You haven't saved any searches yet. Run a search on the <a href="{{ list_url }}">Browse</a> page and click "Save this search" to get notified when a matching book is listed.{% endblocktrans %}
+        </p>
+    {% endfor %}
+</div>
+{% endblock %}

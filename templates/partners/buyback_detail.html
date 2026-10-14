@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{{ buyback.title }} - {% trans "Buyback Request" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <h4 class="mb-1">{{ buyback.title }}</h4>
+        <p class="text-muted mb-1">{{ buyback.author }} &middot; {{ buyback.get_condition_display }} &middot; {% blocktrans trimmed with qty=buyback.quantity %}Qty {{ qty }}{% endblocktrans %}</p>
+        <span class="badge
+            {% if buyback.status == 'pending' %}bg-secondary
+            {% elif buyback.status == 'offer_made' %}bg-info text-dark
+            {% elif buyback.status == 'accepted' %}bg-primary
+            {% elif buyback.status == 'paid' %}bg-success
+            {% else %}bg-dark{% endif %} mb-3">
+            {{ buyback.get_status_display }}
+        </span>
+
+        <div class="card p-3 mb-3">
+            <h6>{% trans "Details" %}</h6>
+            {% if buyback.category %}<p class="small mb-1"><strong>{% trans "Category" %}:</strong> {{ buyback.category.name }}</p>{% endif %}
+            {% if buyback.publisher or buyback.edition or buyback.publication_year %}<p class="small mb-1"><strong>{% trans "Publisher / Edition" %}:</strong> {{ buyback.publisher|default:"-" }}{% if buyback.edition %} &middot; {{ buyback.edition }}{% endif %}{% if buyback.publication_year %} &middot; {{ buyback.publication_year }}{% endif %}</p>{% endif %}
+            {% if buyback.isbn %}<p class="small mb-1"><strong>ISBN:</strong> {{ buyback.isbn }}</p>{% endif %}
+            {% if buyback.subject or buyback.board or buyback.university or buyback.branch or buyback.semester %}<p class="small mb-1"><strong>{% trans "Subject / Course" %}:</strong> {{ buyback.subject }}{% if buyback.board %} &middot; {{ buyback.board }}{% endif %}{% if buyback.university %} &middot; {{ buyback.university }}{% endif %}{% if buyback.branch %} &middot; {{ buyback.branch }}{% endif %}{% if buyback.semester %} &middot; {% blocktrans trimmed with sem=buyback.semester %}Sem {{ sem }}{% endblocktrans %}{% endif %}</p>{% endif %}
+            <p class="small mb-1"><strong>{% trans "Language" %}:</strong> {{ buyback.language }}{% if buyback.original_price %} &middot; <strong>{% trans "MRP" %}:</strong> ₹{{ buyback.original_price }}{% endif %}</p>
+            <p class="small mb-1"><strong>{% trans "Description" %}:</strong> {{ buyback.description|default:"-" }}</p>
+            <p class="small mb-1"><strong>{% trans "Pickup" %}:</strong> {{ buyback.pickup_address }}, {{ buyback.pickup_city }} {{ buyback.pickup_pincode }}</p>
+            {% if buyback.expected_price %}<p class="small mb-0"><strong>{% trans "You asked for" %}:</strong> ₹{{ buyback.expected_price }}</p>{% endif %}
+        </div>
+
+        {% if buyback.images.all %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            {% for img in buyback.images.all %}
+            <img src="{% url 'partners:buyback_image' img.pk %}" style="width:100px;height:100px;object-fit:cover;border-radius:6px;">
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if buyback.partner and buyback.status != 'cancelled' %}
+        <a href="{% url 'chatapp:start_buyback' buyback.pk %}" class="btn btn-sm btn-outline-dark mb-3"><i class="bi bi-chat-dots"></i> {% blocktrans trimmed with name=buyback.partner.shop_name %}Message {{ name }}{% endblocktrans %}</a>
+        {% endif %}
+
+        {% if buyback.status == 'offer_made' %}
+        <div class="card p-3 mb-3 border-info">
+            <h6><i class="bi bi-shop"></i> {% url 'partners:profile' buyback.partner.pk as profile_url %}{% blocktrans trimmed with name=buyback.partner.shop_name %}Offer from <a href="{{ profile_url }}">{{ name }}</a>{% endblocktrans %}</h6>
+            {% if partner_rep %}<div class="mb-2">{% include 'partners/_badges.html' with rep=partner_rep %}</div>{% endif %}
+            <p class="mb-1">₹{{ buyback.offered_price }}</p>
+            {% if buyback.offer_note %}<p class="small text-muted">"{{ buyback.offer_note }}"</p>{% endif %}
+            <div class="d-flex gap-2 mt-2">
+                <form method="post" action="{% url 'partners:accept_offer' buyback.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">{% trans "Accept Offer" %}</button>
+                </form>
+                <form method="post" action="{% url 'partners:reject_offer' buyback.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger">{% trans "Decline" %}</button>
+                </form>
+            </div>
+        </div>
+        {% elif buyback.status == 'accepted' %}
+        <div class="alert alert-primary">
+            {% blocktrans trimmed with price=buyback.offered_price name=buyback.partner.shop_name %}You accepted ₹{{ price }} from {{ name }}. Agree a pickup time below - they pay you in person at handover.{% endblocktrans %}
+        </div>
+        {% include 'partners/_pickup_card.html' with b=buyback is_seller=True %}
+        {% elif buyback.status == 'paid' %}
+        <div class="alert alert-success">
+            {% blocktrans trimmed with name=buyback.partner.shop_name price=buyback.final_price date=buyback.completed_at|date:"d M Y" %}Completed - {{ name }} paid you ₹{{ price }} on {{ date }}.{% endblocktrans %}
+            {% if buyback.listed_book %}
+            {% url 'books:detail' buyback.listed_book.pk as book_url %}{% blocktrans trimmed with price=buyback.listed_book.price %}They've relisted it on BookBridge at <a href="{{ book_url }}">₹{{ price }}</a>.{% endblocktrans %}
+            {% endif %}
+        </div>
+        {% if review %}
+        <div class="card p-3 mb-3">
+            <h6>{% blocktrans trimmed with name=buyback.partner.shop_name %}Your review of {{ name }}{% endblocktrans %}</h6>
+            <div class="text-warning">{% for i in "12345" %}{% if forloop.counter <= review.rating %}<i class="bi bi-star-fill"></i>{% else %}<i class="bi bi-star"></i>{% endif %}{% endfor %}</div>
+            {% if review.comment %}<div class="small">{{ review.comment }}</div>{% endif %}
+        </div>
+        {% elif review_form %}
+        <form method="post" action="{% url 'partners:review_partner' buyback.pk %}" class="card p-3 mb-3">
+            {% csrf_token %}
+            <h6>{% blocktrans trimmed with name=buyback.partner.shop_name %}Rate {{ name }}{% endblocktrans %}</h6>
+            <div class="mb-2">
+                {% for radio in review_form.rating %}
+                <div class="form-check form-check-inline">{{ radio.tag }} <label class="form-check-label small" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                {% endfor %}
+            </div>
+            {{ review_form.comment }}
+            <div class="form-text small mb-2">{% trans "Reviews can't be edited after you submit them." %}</div>
+            <button class="btn btn-warning text-dark fw-semibold btn-sm align-self-start">{% trans "Submit review" %}</button>
+        </form>
+        <script nonce="{{ csp_nonce }}">document.querySelectorAll('form[action*="review"] input[type=radio]').forEach(el => el.classList.add('form-check-input')); document.querySelectorAll('form[action*="review"] textarea').forEach(el => el.classList.add('form-control'));</script>
+        {% endif %}
+        {% elif buyback.status == 'pending' %}
+        {% if reserved %}
+        <p class="text-muted">{% trans "Sent to a nearby partner first. If they don't respond in time it automatically moves to the next one, and then opens to every partner in range." %}{% if routing_round > 1 %} <span class="small">{% blocktrans trimmed with n=routing_round %}(Already passed on to partner #{{ n }}.){% endblocktrans %}</span>{% endif %}</p>
+        {% else %}
+        <p class="text-muted">{% trans "Open for offers - nearby partners can see this and will make you an offer soon." %}</p>
+        {% endif %}
+        <form method="post" action="{% url 'partners:cancel_request' buyback.pk %}" data-confirm="{% trans 'Cancel this buyback request?' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">{% trans "Cancel Request" %}</button>
+        </form>
+        {% endif %}
+
+        <a href="{% url 'partners:buyback_list' %}" class="d-inline-block mt-2 small">&larr; {% trans "Back to my requests" %}</a>
+    </div>
+</div>
+{% endblock %}

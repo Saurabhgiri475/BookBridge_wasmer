@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block content %}
+<h4 class="mb-3">{% trans "Checkout" %}</h4>
+{% if is_rental %}
+<div class="alert alert-warning small">
+    <i class="bi bi-arrow-repeat"></i> {% blocktrans trimmed with title=book.title days=rent_days %}Renting <strong>{{ title }}</strong> for <strong>{{ days }} days</strong>, starting once delivery is confirmed. Return it (mark it returned from the order page) before the due date.{% endblocktrans %}
+</div>
+{% endif %}
+<div class="row">
+    <div class="col-md-7">
+        <form method="post" class="card p-3" id="checkoutForm">
+            {% csrf_token %}
+            {% if is_rental %}<input type="hidden" name="rent_days" value="{{ rent_days }}">{% endif %}
+            {% if book.is_digital %}
+                <div class="alert alert-info small mb-3">
+                    <i class="bi bi-lightning-charge"></i> {% blocktrans trimmed %}This is a digital item - no shipping address needed. You'll get the file emailed to you and available to download from the order page right after payment.{% endblocktrans %}
+                </div>
+                {% for field in form %}
+                {% if field.name == 'payment_method' %}
+                <div class="mb-2">
+                    <label class="form-label small">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+                {% endif %}
+                {% endfor %}
+            {% else %}
+                <h6>{% trans "Delivery Address" %}</h6>
+                {% for field in form %}
+                {% if field.name != 'coupon_code' %}
+                <div class="mb-2">
+                    <label class="form-label small">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+                {% endif %}
+                {% endfor %}
+            {% endif %}
+            {{ form.coupon_code.as_hidden }}
+            <button class="btn btn-warning text-dark fw-semibold mt-2">{% trans "Place Order" %}</button>
+        </form>
+    </div>
+    <div class="col-md-5">
+        <div class="card p-3 mb-3 border-success">
+            <h6><i class="bi bi-tag"></i> {% trans "Have a Coupon?" %} <span class="badge bg-success">{% trans "Discount" %}</span></h6>
+            <div class="d-flex gap-2 align-items-center flex-wrap mb-1">
+                <input type="text" id="couponInput" class="form-control" style="max-width:220px; text-transform:uppercase;" placeholder="{% trans 'Enter coupon code' %}">
+                <button type="button" id="couponApplyBtn" class="btn btn-outline-success">{% trans "Apply" %}</button>
+                <button type="button" id="couponRemoveBtn" class="btn btn-outline-secondary d-none">{% trans "Remove" %}</button>
+                <span id="couponSpinner" class="spinner-border spinner-border-sm text-secondary d-none"></span>
+            </div>
+            <div id="couponResult" class="small"></div>
+        </div>
+
+        <div class="card p-3">
+            <h6>{% trans "Order Summary" %}</h6>
+            <div class="d-flex justify-content-between"><span>{{ book.title }}{% if is_rental %} <span class="badge bg-warning text-dark">{% blocktrans trimmed with days=rent_days %}Rent &middot; {{ days }}d{% endblocktrans %}</span>{% endif %}</span><span>₹<span id="summarySubtotal">{{ final_price }}</span></span></div>
+            {% if accepted_offer %}<div class="small text-success">{% trans "Accepted offer price applied" %}</div>{% endif %}
+            <div class="d-flex justify-content-between text-muted small"><span>{% trans "Delivery charge" %}</span><span>₹<span id="summaryDelivery">{{ delivery_charge }}</span></span></div>
+            <div id="summaryDiscountRow" class="d-flex justify-content-between text-success small d-none">
+                <span>{% trans "Coupon discount" %} (<span id="summaryCouponCode"></span>)</span><span>−₹<span id="summaryDiscount">0</span></span>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between fw-bold"><span>{% trans "Total" %}</span><span>₹<span id="summaryTotal">{{ final_price|add:delivery_charge }}</span></span></div>
+            {% if book.is_digital %}
+                <div class="small text-muted mt-2"><i class="bi bi-cloud-arrow-down"></i> {% trans "Delivered instantly by email + download link - no escrow wait for shipping." %}</div>
+            {% else %}
+                <div class="small text-muted mt-2"><i class="bi bi-shield-check"></i> {% trans "Payment held in escrow until you confirm delivery." %}</div>
+            {% endif %}
+            <div class="small text-muted">{% trans "Choosing UPI/Card/Wallet takes you to a secure Razorpay payment page next." %}{% if not book.is_digital %} {% trans "Cash on Delivery places the order immediately." %}{% endif %}</div>
+            <div class="small mt-2 p-2 rounded" style="background:#eef1f5;">
+                <i class="bi bi-wallet2"></i> {% blocktrans trimmed with balance=wallet_balance %}BookBridge Wallet balance: <strong>₹{{ balance }}</strong>{% endblocktrans %}
+                {% if wallet_balance > 0 %}{% trans '— select "BookBridge Wallet" as payment method to pay instantly from it.' %}{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('input, select').forEach(el => el.classList.add('form-control'));
+document.querySelectorAll('select').forEach(el => { el.classList.remove('form-control'); el.classList.add('form-select'); });
+</script>
+{% trans "Enter a coupon code first." as t_enter %}{% trans "Could not check that coupon - please try again." as t_fail %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const SUBTOTAL = {{ final_price }};
+    const DELIVERY = {{ delivery_charge }};
+
+    const couponInput = document.getElementById('couponInput');
+    const applyBtn = document.getElementById('couponApplyBtn');
+    const removeBtn = document.getElementById('couponRemoveBtn');
+    const resultBox = document.getElementById('couponResult');
+    const spinner = document.getElementById('couponSpinner');
+    const hiddenCouponField = document.getElementById('id_coupon_code');
+
+    function renderSummary(discount, code) {
+        const discountRow = document.getElementById('summaryDiscountRow');
+        if (discount > 0) {
+            discountRow.classList.remove('d-none');
+            document.getElementById('summaryDiscount').textContent = discount.toFixed(2);
+            document.getElementById('summaryCouponCode').textContent = code;
+        } else {
+            discountRow.classList.add('d-none');
+        }
+        document.getElementById('summaryTotal').textContent = (SUBTOTAL + DELIVERY - discount).toFixed(2);
+    }
+
+    function clearCoupon() {
+        hiddenCouponField.value = '';
+        couponInput.disabled = false;
+        applyBtn.classList.remove('d-none');
+        removeBtn.classList.add('d-none');
+        renderSummary(0, '');
+    }
+
+    applyBtn.addEventListener('click', async () => {
+        const code = couponInput.value.trim();
+        if (!code) {
+            resultBox.innerHTML = '<span class="text-danger">{{ t_enter|escapejs }}</span>';
+            return;
+        }
+        spinner.classList.remove('d-none');
+        resultBox.innerHTML = '';
+        try {
+            const resp = await fetch("{% url 'orders:apply_coupon' book.pk %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `coupon_code=${encodeURIComponent(code)}{% if is_rental %}&rent_days={{ rent_days }}{% endif %}`,
+            });
+            const data = await resp.json();
+            spinner.classList.add('d-none');
+
+            if (!data.valid) {
+                resultBox.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> ${bbEsc(data.error)}</span>`;
+                return;
+            }
+
+            hiddenCouponField.value = data.code;
+            couponInput.disabled = true;
+            applyBtn.classList.add('d-none');
+            removeBtn.classList.remove('d-none');
+            resultBox.innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> ${bbEsc(data.message)}</span>`;
+            renderSummary(parseFloat(data.discount), data.code);
+        } catch (err) {
+            spinner.classList.add('d-none');
+            resultBox.innerHTML = '<span class="text-danger">{{ t_fail|escapejs }}</span>';
+        }
+    });
+
+    removeBtn.addEventListener('click', () => {
+        couponInput.value = '';
+        resultBox.innerHTML = '';
+        clearCoupon();
+    });
+})();
+</script>
+{% endblock %}

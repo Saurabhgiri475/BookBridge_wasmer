@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% blocktrans trimmed with ref=payout.order_ref %}Payout #{{ ref }}{% endblocktrans %} - {% trans "Staff" %}{% endblock %}
+{% block content %}
+{% trans "(no name on their profile)" as noname_label %}
+<a href="{% url 'payouts:staff_queue' %}" class="small">&laquo; {% trans "All payouts" %}</a>
+<h4 class="mt-2">{% blocktrans trimmed with ref=payout.order_ref %}Payout for order #{{ ref }}{% endblocktrans %} {% include 'payouts/_status_badge.html' %}</h4>
+<p class="text-muted">{{ payout.book_title }}</p>
+
+{% if payout.refunded_after_payout %}
+<div class="alert alert-danger small">{% blocktrans trimmed with amount=payout.net_amount name=payout.seller.username %}The buyer was refunded after this payout was sent. Recover ₹{{ amount }} from {{ name }}.{% endblocktrans %}</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card p-3 h-100">
+            <h6>{% trans "Amounts" %}</h6>
+            <table class="table table-sm mb-0">
+                <tr><td>{% trans "Sale price" %}</td><td class="text-end">₹{{ payout.gross_amount }}</td></tr>
+                <tr><td>{% blocktrans trimmed with percent=payout.commission_percent %}Commission ({{ percent }}%){% endblocktrans %}</td><td class="text-end">-₹{{ payout.commission_amount }}</td></tr>
+                <tr class="fw-semibold"><td>{% trans "Net to seller" %}</td><td class="text-end">₹{{ payout.net_amount }}</td></tr>
+            </table>
+            <div class="small text-muted mt-2">{% blocktrans trimmed with date=payout.released_at|date:"d M Y, H:i" %}Released {{ date }} UTC{% endblocktrans %}{% if payout.order %} &middot; <a href="{% url 'orders:detail' payout.order.order_id %}">{% trans "view order" %}</a>{% endif %}</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 h-100">
+            <h6>{% trans "Seller" %}</h6>
+            <div>{{ payout.seller.get_full_name|default:payout.seller.username }} <span class="text-muted small">({{ payout.seller.username }})</span></div>
+            <div class="small">{% trans "UPI ID" %}: {% if payout.current_upi %}<strong>{{ payout.current_upi }}</strong>{% else %}<span class="text-danger">{% trans "not set" %}</span>{% endif %}
+                {% if payout.upi_recently_changed %}<span class="badge bg-danger ms-1">{% blocktrans trimmed with left=payout.upi_hold_left %}UPI changed recently - payout blocked for another {{ left }}{% endblocktrans %}</span>{% elif payout.upi_hold_overridden %}<span class="badge bg-warning text-dark ms-1">{% trans "hold overridden by staff" %}</span>{% endif %}</div>
+            <div class="small text-muted">{% trans "Email" %} {% if payout.seller.email_verified %}{% trans "verified" %}{% else %}{% trans "not verified" %}{% endif %}</div>
+            {% if payout.status == 'paid' %}
+            <hr>
+            <div class="small">{% blocktrans trimmed with date=payout.paid_at|date:"d M Y, H:i" upi=payout.paid_to_upi %}Paid {{ date }} UTC to <strong>{{ upi }}</strong>{% endblocktrans %}<br>UTR <strong>{{ payout.utr }}</strong>{% if payout.paid_by %} &middot; {% blocktrans trimmed with name=payout.paid_by.username %}recorded by {{ name }}{% endblocktrans %}{% endif %}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if payout.status == 'pending' or payout.status == 'on_hold' %}
+<div class="card p-3 mt-3">
+    <h6>{% trans "UPI name check" %}
+        {% if payout.name_verified %}<span class="badge bg-success ms-1">{% trans "Confirmed" %}</span>{% elif payout.name_check_needed %}<span class="badge bg-warning text-dark ms-1">{% trans "Needed before first payout" %}</span>{% else %}<span class="badge bg-secondary ms-1">{% trans "Not needed" %}</span>{% endif %}
+    </h6>
+    {% if payout.name_verified %}
+    <div class="small">{% blocktrans trimmed with name=payout.verified_name upi=payout.current_upi %}UPI app showed <strong>{{ name }}</strong> for {{ upi }}{% endblocktrans %}{% if payout.name_check_override %} <span class="badge bg-danger">{% trans "accepted despite mismatch" %}</span>{% endif %}.</div>
+    {% elif payout.name_check_needed %}
+    <p class="small text-muted mb-2">{% blocktrans trimmed with upi=payout.current_upi name=payout.account_name|default:noname_label %}Open your UPI app and enter <strong>{{ upi }}</strong> as the payee. The app shows the bank account holder's name before you pay - type it below. It should match the seller's account name: <strong>{{ name }}</strong>.{% endblocktrans %}</p>
+    <form method="post" action="{% url 'payouts:staff_check_upi_name' payout.pk %}" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-5"><input type="text" name="upi_name" class="form-control form-control-sm" placeholder="{% trans 'Name shown by the UPI app' %}" maxlength="120" autocomplete="off" required></div>
+        <div class="col-md-auto"><button class="btn btn-primary btn-sm">{% trans "Check name" %}</button></div>
+        <div class="col-12">
+            <div class="form-check small"><input class="form-check-input" type="checkbox" name="override" id="override-{{ payout.pk }}"><label class="form-check-label" for="override-{{ payout.pk }}">{% trans "Accept anyway if the names differ (note required)" %}</label></div>
+            <input type="text" name="note" class="form-control form-control-sm mt-1" style="max-width:420px;" placeholder="{% trans 'Why is it still the right person? (only needed to accept a mismatch)' %}" maxlength="300">
+        </div>
+    </form>
+    {% else %}
+    <div class="small text-muted">{% trans "This UPI ID has been paid before, so no check is needed." %}</div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if payout.upi_recently_changed and payout.status == 'pending' or payout.upi_recently_changed and payout.status == 'on_hold' %}
+<div class="card p-3 mt-3 border-danger">
+    <h6 class="text-danger">{% trans "Security hold after UPI change" %}</h6>
+    <p class="small mb-2">{% blocktrans trimmed with left=payout.upi_hold_left %}This seller changed their UPI ID recently. Payment is blocked for another <strong>{{ left }}</strong>. If you have confirmed with the seller through a channel you already had on file (not the one they just used), you can override.{% endblocktrans %}</p>
+    <form method="post" action="{% url 'payouts:staff_override_upi_hold' payout.pk %}" class="d-flex gap-2 flex-wrap" data-confirm="{% blocktrans trimmed with name=payout.seller.username %}Override the security hold for {{ name }}? This is audited.{% endblocktrans %}">
+        {% csrf_token %}
+        <input type="text" name="reason" class="form-control form-control-sm" style="max-width:420px;" placeholder="{% trans 'Why is it safe to pay now? (required)' %}" maxlength="300" required minlength="10">
+        <button class="btn btn-outline-danger btn-sm">{% trans "Override hold" %}</button>
+    </form>
+</div>
+{% endif %}
+
+{% if payout.note %}<div class="card p-3 mt-3"><h6>{% trans "Notes" %}</h6><div class="small" style="white-space:pre-line;">{{ payout.note }}</div></div>{% endif %}
+
+{% if payout.status == 'pending' %}
+<div class="card p-3 mt-3">
+    <h6>{% trans "Record payment" %}</h6>
+    {% if payout.upi_link %}<a class="btn btn-outline-primary btn-sm mb-2 align-self-start" href="{{ payout.upi_link }}">{% blocktrans trimmed with amount=payout.net_amount %}Open UPI app with ₹{{ amount }} filled in{% endblocktrans %}</a>{% endif %}
+    <form method="post" action="{% url 'payouts:staff_mark_paid' %}" class="d-flex gap-2 flex-wrap" data-confirm="{% blocktrans trimmed with amount=payout.net_amount name=payout.seller.username %}Record ₹{{ amount }} as paid to {{ name }}?{% endblocktrans %}">
+        {% csrf_token %}
+        <input type="hidden" name="payout_ids" value="{{ payout.pk }}"><input type="hidden" name="next" value="detail">
+        <input type="text" name="utr" class="form-control form-control-sm" style="max-width:260px;" placeholder="{% trans 'UPI reference / UTR' %}" maxlength="30" autocomplete="off" required>
+        <button class="btn btn-success btn-sm">{% trans "Mark as paid" %}</button>
+    </form>
+</div>
+{% endif %}
+
+{% if payout.status == 'pending' or payout.status == 'on_hold' %}
+<div class="card p-3 mt-3">
+    <h6>{% if payout.status == 'pending' %}{% trans "Hold or cancel" %}{% else %}{% trans "Release hold or cancel" %}{% endif %}</h6>
+    <form method="post" action="{% url 'payouts:staff_action' payout.pk %}" class="d-flex gap-2 flex-wrap">
+        {% csrf_token %}
+        <input type="text" name="note" class="form-control form-control-sm" style="max-width:360px;" placeholder="{% trans 'Reason (required for hold / cancel)' %}" maxlength="300">
+        {% if payout.status == 'pending' %}<button name="action" value="hold" class="btn btn-outline-secondary btn-sm">{% trans "Put on hold" %}</button>
+        {% else %}<button name="action" value="unhold" class="btn btn-outline-primary btn-sm">{% trans "Release hold" %}</button>{% endif %}
+        <button name="action" value="cancel" class="btn btn-outline-danger btn-sm">{% trans "Cancel payout" %}</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

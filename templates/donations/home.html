@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load humanize %}
+{% block title %}{% trans "Donate Books" %} - BookBridge{% endblock %}
+{% block content %}
+
+<div class="hero mb-4">
+    <div class="row align-items-center">
+        <div class="col-lg-8">
+            <h1 class="fw-bold"><i class="bi bi-gift-fill"></i> {% trans "Donate Books, Get a Certificate" %}</h1>
+            <p class="lead mb-3">{% url 'books:sustainability' as impact_url %}{% blocktrans trimmed %}Give books you no longer need to NGOs, schools and libraries. Once your books are received, you get a numbered certificate that anyone can verify, and your donation counts toward our <a href="{{ impact_url }}">Impact</a> numbers.{% endblocktrans %}</p>
+            <a class="btn btn-light btn-lg" href="{% url 'donations:create' %}"><i class="bi bi-heart-fill text-danger"></i> {% trans "Donate books" %}</a>
+            {% if user.is_authenticated %}<a class="btn btn-outline-light btn-lg ms-2" href="{% url 'donations:mine' %}">{% trans "My donations" %}</a>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ stats.books_donated|intcomma }}</div><div class="text-muted small">{% trans "Books donated" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ stats.donor_count|intcomma }}</div><div class="text-muted small">{% trans "Donors" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ stats.org_count|intcomma }}</div><div class="text-muted small">{% trans "Organisations helped" %}</div></div></div>
+    <div class="col-6 col-md-3"><div class="stat-card text-center"><div class="stat-value">{{ stats.donations_count|intcomma }}</div><div class="text-muted small">{% trans "Certificates issued" %}</div></div></div>
+</div>
+
+<h5 class="mb-3">{% trans "How it works" %}</h5>
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card h-100 p-3"><div class="fw-semibold"><span class="badge bg-success me-1">1</span> {% trans "Tell us what you're giving" %}</div><div class="small text-muted mt-1">{% trans "Pick an organisation and list your books." %}</div></div></div>
+    <div class="col-md-3"><div class="card h-100 p-3"><div class="fw-semibold"><span class="badge bg-success me-1">2</span> {% trans "We review it" %}</div><div class="small text-muted mt-1">{% trans "Our team accepts the donation and you're told where or how to hand the books over." %}</div></div></div>
+    <div class="col-md-3"><div class="card h-100 p-3"><div class="fw-semibold"><span class="badge bg-success me-1">3</span> {% trans "Books are received" %}</div><div class="small text-muted mt-1">{% trans "We confirm how many books actually arrived." %}</div></div></div>
+    <div class="col-md-3"><div class="card h-100 p-3"><div class="fw-semibold"><span class="badge bg-success me-1">4</span> {% trans "Get your certificate" %}</div><div class="small text-muted mt-1">{% trans "A PDF certificate with a QR code, for the verified number of books." %}</div></div></div>
+</div>
+
+<h5 class="mb-3">{% trans "Organisations accepting books" %}</h5>
+<div class="row g-3 mb-4">
+    {% for p in partners %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-start">
+                <h6 class="mb-1">{{ p.name }}</h6>
+                <span class="badge bg-light text-dark border">{{ p.get_org_type_display }}</span>
+            </div>
+            <div class="small text-muted mb-2"><i class="bi bi-geo-alt"></i> {{ p.city }}{% if p.accepts_pickup %} &middot; {% trans "pickup available" %}{% endif %}</div>
+            {% if p.description %}<p class="small mb-2">{{ p.description|truncatewords:30 }}</p>{% endif %}
+            {% if p.registration_number %}<div class="small text-muted mb-2">{% blocktrans trimmed with number=p.registration_number %}Reg. no: {{ number }}{% endblocktrans %}</div>{% endif %}
+            <div class="mt-auto d-flex gap-2">
+                <a class="btn btn-sm btn-success" href="{% url 'donations:create' %}?partner={{ p.pk }}">{% trans "Donate here" %}</a>
+                {% if p.website %}<a class="btn btn-sm btn-outline-secondary" href="{{ p.website }}" target="_blank" rel="noopener noreferrer">{% trans "Website" %}</a>{% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12"><div class="alert alert-info mb-0">{% trans "No organisations are accepting donations yet. Please check back soon." %}</div></div>
+    {% endfor %}
+</div>
+
+<div class="card p-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><i class="bi bi-patch-check text-success"></i> {% trans "Received a certificate and want to check one?" %}</div>
+        <a class="btn btn-sm btn-outline-success" href="{% url 'donations:verify_form' %}">{% trans "Verify a certificate" %}</a>
+    </div>
+</div>
+{% endblock %}

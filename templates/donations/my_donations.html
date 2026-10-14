@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "My Donations" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-gift"></i> {% trans "My donations" %}</h3>
+    <a class="btn btn-success" href="{% url 'donations:create' %}">{% trans "Donate books" %}</a>
+</div>
+{% for d in donations %}
+<div class="card p-3 mb-2">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <a class="fw-semibold text-decoration-none" href="{% url 'donations:detail' d.pk %}">{{ d.partner.name }}</a>
+            <div class="small text-muted">{{ d.created_at|date:"d M Y" }} &middot; {% if d.received_count is not None %}{% blocktrans trimmed with n=d.received_count %}{{ n }} received{% endblocktrans %}{% else %}{% blocktrans trimmed count counter=d.claimed_count %}{{ counter }} book{% plural %}{{ counter }} books{% endblocktrans %}{% endif %}</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% include 'donations/_status_badge.html' with status=d.status label=d.get_status_display %}
+            {% if d.active_certificate %}<a class="btn btn-sm btn-outline-success" href="{% url 'donations:certificate_pdf' d.active_certificate.code %}"><i class="bi bi-download"></i> {% trans "Certificate" %}</a>{% endif %}
+        </div>
+    </div>
+</div>
+{% empty %}
+<div class="alert alert-info">{% url 'donations:create' as create_url %}{% blocktrans trimmed %}You haven't donated yet. <a href="{{ create_url }}">Donate your first books</a>.{% endblocktrans %}</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Two-factor check" %}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-6 col-lg-5">
+<div class="card p-4">
+    <div class="text-center mb-3">
+        <div class="display-6 text-warning"><i class="bi bi-shield-check"></i></div>
+        <h4 class="mb-1">{% trans "Two-factor check" %}</h4>
+        <p class="text-muted small mb-0">{% trans "Enter the 6-digit code from your authenticator app to continue to the staff area." %}</p>
+    </div>
+    <form method="post" autocomplete="off">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <label class="form-label" for="codeInput">{% trans "Authenticator code" %}</label>
+        <input type="text" name="code" id="codeInput" class="form-control form-control-lg text-center mb-3" inputmode="text"
+               maxlength="12" autocomplete="one-time-code" placeholder="------" required autofocus style="letter-spacing: .3em;">
+        <button class="btn btn-warning text-dark fw-semibold w-100">{% trans "Verify" %}</button>
+    </form>
+    <p class="text-muted small mt-3 mb-0">{% trans "Lost your phone? Enter one of your single-use recovery codes instead." %}</p>
+</div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load public_names %}
+{% block title %}{{ book.title }} - BookBridge{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-5 mb-3">
+        {% if book.images.all %}
+        <div id="carousel" class="carousel slide">
+            <div class="carousel-inner rounded" style="background:#eef1f5;">
+                {% for img in book.images.all %}
+                <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                    <img src="{{ img.image.url }}" class="d-block w-100" style="max-height:420px;object-fit:contain;">
+                    <div class="carousel-caption bg-dark bg-opacity-50 rounded small py-1">{{ img.get_angle_display }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if book.images.count > 1 %}
+            <button class="carousel-control-prev" type="button" data-bs-target="#carousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon"></span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#carousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon"></span>
+            </button>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center justify-content-center rounded" style="height:420px;background:#eef1f5;">
+            <i class="bi bi-book" style="font-size:5rem;color:#c3ccd6;"></i>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-7">
+        <div class="d-flex justify-content-between align-items-start">
+            <h3 class="fw-bold">{{ book.title }}</h3>
+            {% if user.is_authenticated %}
+            <a href="{% url 'books:toggle_wishlist' book.pk %}" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-heart{% if is_wishlisted %}-fill{% endif %}"></i>
+            </a>
+            {% endif %}
+        </div>
+        <div class="text-muted mb-2">{% trans "Unknown author" as unknown_author %}{% blocktrans with author=book.author|default:unknown_author publisher=book.publisher %}by {{ author }} &middot; {{ publisher }}{% endblocktrans %}</div>
+        {% if book.is_digital %}
+            <span class="badge bg-info text-dark"><i class="bi bi-file-earmark-pdf"></i> {% blocktrans with dtype=book.get_digital_type_display %}Digital Book &middot; {{ dtype }}{% endblocktrans %}</span>
+        {% else %}
+            <span class="badge badge-condition">{{ book.get_condition_display }}</span>
+        {% endif %}
+        <span class="badge bg-light text-dark border">{{ book.category.name|default:_("Uncategorized") }}</span>
+        {% if book.status != 'available' %}<span class="badge bg-secondary">{{ book.get_status_display }}</span>{% endif %}
+
+        <div class="mt-3">
+            <span class="fs-3 price-tag">₹{{ book.price }}</span>
+            {% if book.original_price %}<span class="original-price ms-2">₹{{ book.original_price }}</span>
+                <span class="badge bg-success ms-1">{% blocktrans with pct=book.discount_percent %}{{ pct }}% off{% endblocktrans %}</span>
+            {% endif %}
+        </div>
+        {% if suggested_price %}
+            <div class="small text-muted mt-1"><i class="bi bi-graph-up"></i> {% blocktrans with price=suggested_price %}Market price estimate for this title: ₹{{ price }} (based on similar listings){% endblocktrans %}</div>
+        {% endif %}
+        {% if book.rental_options %}
+            <div class="mt-2 p-2 rounded border" style="background:#fff8e6;">
+                <div class="small fw-semibold mb-1"><i class="bi bi-arrow-repeat"></i> {% trans "Or rent this book" %}</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    {% for opt in book.rental_options %}
+                    <span class="badge bg-light text-dark border">{% blocktrans with days=opt.days price=opt.price %}{{ days }} Days &middot; ₹{{ price }}{% endblocktrans %}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        {% if book.is_digital %}
+            <div class="small text-muted mt-1"><i class="bi bi-lightning-charge"></i> {% trans "Instant delivery - emailed + downloadable right after payment, no shipping." %}</div>
+        {% endif %}
+
+        <table class="table table-sm mt-3">
+            <tbody>
+                {% if book.isbn %}<tr><th class="text-muted">{% trans "ISBN" %}</th><td>{{ book.isbn }}</td></tr>{% endif %}
+                {% if book.edition %}<tr><th class="text-muted">{% trans "Edition" %}</th><td>{{ book.edition }}</td></tr>{% endif %}
+                {% if book.subject %}<tr><th class="text-muted">{% trans "Subject" %}</th><td>{{ book.subject }}</td></tr>{% endif %}
+                {% if book.board %}<tr><th class="text-muted">{% trans "Board" %}</th><td>{{ book.board }}</td></tr>{% endif %}
+                {% if book.university %}<tr><th class="text-muted">{% trans "University" %}</th><td>{{ book.university }}</td></tr>{% endif %}
+                {% if book.branch %}<tr><th class="text-muted">{% trans "Branch" %}</th><td>{{ book.branch }}</td></tr>{% endif %}
+                {% if book.semester %}<tr><th class="text-muted">{% trans "Semester" %}</th><td>{{ book.semester }}</td></tr>{% endif %}
+                <tr><th class="text-muted">{% trans "Language" %}</th><td>{{ book.language }}</td></tr>
+                {% if book.is_digital %}
+                <tr><th class="text-muted">{% trans "Format" %}</th><td>{{ book.get_digital_type_display }}</td></tr>
+                {% else %}
+                <tr><th class="text-muted">{% trans "Quantity" %}</th><td>{{ book.quantity }}</td></tr>
+                <tr><th class="text-muted">{% trans "Pickup Location" %}</th><td>{{ book.pickup_city }}</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        {% if not book.is_digital and book.pickup_latitude and book.pickup_longitude %}
+        <div id="pickupMiniMap" style="height:200px;border-radius:8px;" class="mb-3"></div>
+        {% endif %}
+        {% if book.description %}<p>{{ book.description }}</p>{% endif %}
+
+        <div class="d-flex align-items-center mb-3">
+            <i class="bi bi-person-circle fs-4 me-2"></i>
+            <div>
+                <a href="{% url 'accounts:profile_by_id' book.seller.pk %}">{{ book.seller|public_name }}</a>
+                {% if book.seller.is_seller_verified %}
+                    <span class="badge bg-success" title="{% trans 'Identity verified by BookBridge' %}"><i class="bi bi-patch-check-fill"></i> {% trans "Verified Seller" %}</span>
+                {% endif %}
+                {% if book.seller.seller_rating %}
+                    <span class="small text-warning">★ {{ book.seller.seller_rating }}</span>
+                {% endif %}
+            </div>
+            {% if user.is_authenticated and user != book.seller %}
+                <a href="{% url 'books:report' book.pk %}" class="small text-muted ms-auto"><i class="bi bi-flag"></i> {% trans "Report" %}</a>
+            {% endif %}
+        </div>
+
+        {% if user.is_authenticated and user != book.seller and book.status == 'available' %}
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{% url 'orders:checkout' book.pk %}" class="btn btn-warning text-dark fw-semibold">
+                    {% if book.is_digital %}{% trans "Buy & Download" %}{% else %}{% trans "Buy Now" %}{% endif %}
+                </a>
+                {% if book.rental_options %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-arrow-repeat"></i> {% trans "Rent this Book" %}
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% for opt in book.rental_options %}
+                        <li><a class="dropdown-item" href="{% url 'orders:checkout' book.pk %}?rent_days={{ opt.days }}">{% blocktrans with days=opt.days price=opt.price %}{{ days }} Days &middot; ₹{{ price }}{% endblocktrans %}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <a href="{% url 'orders:make_offer' book.pk %}" class="btn btn-outline-primary">{% trans "Make an Offer" %}</a>
+                <a href="{% url 'chatapp:start' book.pk %}" class="btn btn-outline-secondary"><i class="bi bi-chat-dots"></i> {% trans "Chat with Seller" %}</a>
+            </div>
+            {% if user_offer %}
+                <div class="small text-muted mt-2">{% blocktrans with amount=user_offer.amount status=user_offer.get_status_display %}Your latest offer: ₹{{ amount }} ({{ status }}){% endblocktrans %}</div>
+            {% endif %}
+        {% elif user == book.seller %}
+            <div class="d-flex gap-2">
+                <a href="{% url 'books:edit' book.pk %}" class="btn btn-outline-primary btn-sm">{% trans "Edit Listing" %}</a>
+                <a href="{% url 'books:delete' book.pk %}" class="btn btn-outline-danger btn-sm">{% trans "Remove Listing" %}</a>
+                {% if book.status == 'available' %}
+                <a href="{% url 'books:bump' book.pk %}" class="btn btn-outline-warning btn-sm"><i class="bi bi-star"></i> {% if book.is_currently_featured %}{% trans "Extend Feature" %}{% else %}{% trans "Feature This Listing" %}{% endif %}</a>
+                {% endif %}
+            </div>
+            {% if all_offers %}
+                <h6 class="mt-3">{% trans "Offers Received" %}</h6>
+                {% for offer in all_offers %}
+                    <div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            {% blocktrans with buyer=offer.buyer|public_name amount=offer.amount %}<strong>{{ buyer }}</strong> offered ₹{{ amount }}{% endblocktrans %}
+                            <span class="badge bg-light text-dark border">{{ offer.get_status_display }}</span>
+                        </div>
+                        {% if offer.status == 'pending' and offer.made_by == 'buyer' %}
+                        <form method="post" action="{% url 'orders:respond_offer' offer.pk %}" class="d-flex gap-1">
+                            {% csrf_token %}
+                            <input type="number" name="counter_amount" class="form-control form-control-sm" style="width:90px" placeholder="{% trans 'Counter ₹' %}">
+                            <button name="action" value="counter" class="btn btn-sm btn-outline-secondary">{% trans "Counter" %}</button>
+                            <button name="action" value="accept" class="btn btn-sm btn-success">{% trans "Accept" %}</button>
+                            <button name="action" value="reject" class="btn btn-sm btn-outline-danger">{% trans "Reject" %}</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% elif not user.is_authenticated %}
+            <a href="{% url 'accounts:login' %}" class="btn btn-warning text-dark fw-semibold">{% trans "Login to Buy" %}</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if also_bought_books %}
+<h5 class="mt-5 mb-3"><i class="bi bi-stars text-warning"></i> {% trans "Students who bought this also bought" %}</h5>
+<div class="row g-3">
+    {% for book in also_bought_books %}{% include 'books/_book_card.html' %}{% endfor %}
+</div>
+{% endif %}
+
+{% if similar %}
+<h5 class="mt-5 mb-3">{% trans "You may also like" %}</h5>
+<div class="row g-3">
+    {% for book in similar %}{% include 'books/_book_card.html' %}{% endfor %}
+</div>
+{% endif %}
+
+{% if book.pickup_latitude and book.pickup_longitude %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+    const lat = {{ book.pickup_latitude }};
+    const lng = {{ book.pickup_longitude }};
+    const map = L.map('pickupMiniMap', {scrollWheelZoom: false}).setView([lat, lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+    }).addTo(map);
+    L.circle([lat, lng], {radius: 400, color: '#ffc107', fillColor: '#ffc107', fillOpacity: 0.25}).addTo(map);
+    setTimeout(() => map.invalidateSize(), 200);
+})();
+</script>
+{% endif %}
+{% endblock %}

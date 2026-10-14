@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}{% trans "Verify a Donation Certificate" %} - BookBridge{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-6">
+<h3 class="mb-3"><i class="bi bi-patch-check"></i> {% trans "Verify a donation certificate" %}</h3>
+
+<form method="get" action="{% url 'donations:verify_form' %}" class="d-flex gap-2 mb-4">
+    <input class="form-control" name="code" value="{{ code }}" placeholder="{% trans 'Certificate No, e.g. BBD-XXXXXXXXXX' %}" maxlength="30" autocomplete="off">
+    <button class="btn btn-success" type="submit">{% trans "Verify" %}</button>
+</form>
+
+{% if certificate and not certificate.revoked %}
+<div class="card border-success p-4">
+    <div class="text-success fw-semibold mb-2"><i class="bi bi-check-circle-fill"></i> {% trans "Valid certificate" %}</div>
+    <div class="fs-5 fw-semibold">{{ certificate.recipient_name }}</div>
+    <div>{% blocktrans trimmed with partner=certificate.partner_name count counter=certificate.books_count %}donated <strong>{{ counter }} book</strong> to <strong>{{ partner }}</strong>{% plural %}donated <strong>{{ counter }} books</strong> to <strong>{{ partner }}</strong>{% endblocktrans %}{% if certificate.partner_city %}, {{ certificate.partner_city }}{% endif %}.</div>
+    <div class="small text-muted mt-2">{% blocktrans trimmed with date=certificate.issued_at|date:"d F Y" code=certificate.code %}Issued {{ date }} &middot; {{ code }}{% endblocktrans %}</div>
+</div>
+{% elif certificate and certificate.revoked %}
+<div class="card border-danger p-4">
+    <div class="text-danger fw-semibold mb-1"><i class="bi bi-x-circle-fill"></i> {% trans "This certificate has been revoked" %}</div>
+    <div class="small text-muted">{% blocktrans trimmed with code=certificate.code %}{{ code }} is no longer valid.{% endblocktrans %}</div>
+</div>
+{% elif searched %}
+<div class="alert alert-warning">{% blocktrans trimmed %}No certificate found for <strong>{{ code }}</strong>. Check the number and try again.{% endblocktrans %}</div>
+{% endif %}
+</div></div>
+{% endblock %}

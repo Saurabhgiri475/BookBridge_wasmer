@@ -1,0 +1,381 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% trans "BookBridge - Buy & Sell Used Books" %}{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
+    <link rel="manifest" href="{% url 'manifest' %}">
+    <meta name="theme-color" content="#1f3a5f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="BookBridge">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{% static 'img/icons/apple-touch-icon.png' %}">
+    <script src="{% static 'js/bb-safe.js' %}"></script>
+    <script src="{% static 'js/ui-actions.js' %}" defer></script>
+    <script src="{% static 'js/pwa.js' %}" defer></script>
+    <script nonce="{{ csp_nonce }}">if(!window.matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("bb-js");</script>
+</head>
+<body data-vapid-key="{{ webpush_vapid_public_key }}">
+<nav id="bbNavbar" class="navbar bb-navbar navbar-expand-lg navbar-dark {% if nav_partner %}bg-partner{% else %}bg-brand{% endif %} sticky-top">
+    <div class="container">
+        <a class="navbar-brand bb-brand fw-bold" href="{% url 'books:home' %}">
+            <i class="bi bi-book-half bb-brand-icon"></i> <span class="bb-brand-text">Book<span>Bridge</span></span>{% if nav_partner %} <span class="badge partner-badge">{% trans "PARTNER" %}</span>{% endif %}
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav me-lg-3">
+                {% if nav_partner %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'partners:dashboard' %}"><i class="bi bi-inboxes"></i> {% trans "Leads" %}</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'partners:analytics' %}"><i class="bi bi-graph-up-arrow"></i> {% trans "Analytics" %}</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'partners:inventory' %}"><i class="bi bi-boxes"></i> {% trans "Inventory" %}</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'books:list' %}">{% trans "Browse" %}</a></li>
+                {% else %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'books:list' %}">{% trans "Browse" %}</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'books:request_list' %}">{% trans "Requests" %}</a></li>
+                {% endif %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">{% trans "More" %}</a>
+                    <ul class="dropdown-menu">
+                        {% if nav_partner %}
+                        <li><a class="dropdown-item" href="{% url 'partners:earnings' %}"><i class="bi bi-cash-coin"></i> {% trans "Earnings &amp; Commission" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'partners:settings' %}"><i class="bi bi-gear"></i> {% trans "Shop Settings" %}</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'books:request_list' %}">{% trans "Book Requests" %}</a></li>
+                        {% endif %}
+                        <li><a class="dropdown-item" href="{% url 'books:home' %}"><i class="bi bi-house"></i> {% trans "Home" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'donations:home' %}"><i class="bi bi-gift"></i> {% trans "Donate Books" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'books:sustainability' %}"><i class="bi bi-tree"></i> {% trans "Impact" %}</a></li>
+                        <li><a class="dropdown-item" href="{% url 'books:about' %}">{% trans "About" %}</a></li>
+                        <li id="pwaInstallItem" hidden><hr class="dropdown-divider"><button type="button" class="dropdown-item" id="pwaInstallBtn"><i class="bi bi-download"></i> {% trans "Install app" %}</button></li>
+                    </ul>
+                </li>
+            </ul>
+
+            <form class="bb-search d-flex flex-grow-1 my-2 my-lg-0 me-lg-3" action="{% url 'books:list' %}" method="get">
+                <input class="form-control" type="search" name="q" placeholder="{% trans 'Search title, author, ISBN, subject, university...' as bb_ph %}{{ bb_ph|force_escape }}" value="{{ request.GET.q }}">
+                <button class="bb-search-btn" type="submit" aria-label="{% trans 'Search' as bb_s %}{{ bb_s|force_escape }}"><i class="bi bi-search"></i></button>
+            </form>
+
+            <ul class="navbar-nav align-items-lg-center me-lg-2">
+                {% get_current_language as CURRENT_LANG %}
+                {% get_language_info for CURRENT_LANG as cur_lang %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-label="{% trans 'Language' as bb_l %}{{ bb_l|force_escape }}"><i class="bi bi-translate"></i> {{ cur_lang.name_local }}</a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% get_available_languages as AVAILABLE_LANGS %}
+                        {% for code, lang_name in AVAILABLE_LANGS %}
+                        <li>
+                            <form action="{% url 'set_language' %}" method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" name="language" value="{{ code }}" class="dropdown-item{% if code == CURRENT_LANG %} active{% endif %}" lang="{{ code }}">{{ lang_name }}</button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+                {% if user.is_authenticated %}
+                    {% if nav_partner %}
+                    <li class="nav-item">
+                        <a class="btn bb-sell btn-sm my-1 my-lg-0 me-lg-2" href="{% url 'books:add' %}"><i class="bi bi-plus-circle"></i> {% trans "Sell a Book" %}</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item dropdown">
+                        <a class="btn bb-sell btn-sm dropdown-toggle my-1 my-lg-0 me-lg-2" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-plus-circle"></i> {% trans "Sell" %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'books:add' %}"><i class="bi bi-plus-circle"></i> {% trans "Sell a Book" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'partners:sell_to_bookbridge' %}"><i class="bi bi-cash-stack"></i> {% trans "Sell to BookBridge" %}</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link bb-icon" href="{% url 'books:wishlist' %}" title="{% trans 'Wishlist' as bb_w %}{{ bb_w|force_escape }}"><i class="bi bi-heart"></i><span class="d-lg-none ms-2">{% trans "Wishlist" %}</span></a></li>
+                    <li class="nav-item"><a class="nav-link bb-icon" href="{% url 'chatapp:inbox' %}" title="{% trans 'Messages' as bb_m %}{{ bb_m|force_escape }}"><i class="bi bi-chat-dots"></i><span class="d-lg-none ms-2">{% trans "Messages" %}</span></a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link bb-icon position-relative" href="#" role="button" data-bs-toggle="dropdown" title="{% trans 'Notifications' as bb_n %}{{ bb_n|force_escape }}">
+                            <i class="bi bi-bell{% if nav_unread_notifications %}-fill bb-bell-ring{% endif %}"></i><span class="d-lg-none ms-2">{% trans "Notifications" %}</span>
+                            {% if nav_unread_notifications %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger bb-pulse" style="font-size:0.6rem;">
+                                {{ nav_unread_notifications }}
+                            </span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" style="min-width:300px;">
+                            <li><h6 class="dropdown-header">{% trans "Notifications" %}</h6></li>
+                            {% for n in nav_recent_notifications %}
+                            <li>
+                                <a class="dropdown-item small {% if not n.is_read %}fw-semibold{% endif %}" href="{% url 'notifications:mark_read' n.pk %}" data-submit-form="navNotifRead{{ n.pk }}">
+                                    {{ n.title }}
+                                </a>
+                                <form id="navNotifRead{{ n.pk }}" method="post" action="{% url 'notifications:mark_read' n.pk %}" class="d-none">
+                                    {% csrf_token %}
+                                </form>
+                            </li>
+                            {% empty %}
+                            <li><span class="dropdown-item-text small text-muted">{% trans "Nothing yet" %}</span></li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item small" href="{% url 'notifications:list' %}">{% trans "View all" %}</a></li>
+                            <li><a class="dropdown-item small" href="{% url 'notifications:preferences' %}">{% trans "Preferences" %}</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item"><a class="nav-link bb-icon" href="{% url 'wallet:detail' %}" title="{% trans 'Wallet' as bb_wl %}{{ bb_wl|force_escape }}"><i class="bi bi-wallet2"></i><span class="d-lg-none ms-2">{% trans "Wallet" %}</span></a></li>
+                    {% if user.is_staff %}
+                    <li class="nav-item"><a class="nav-link bb-icon" href="{% url 'adminpanel:dashboard' %}" title="{% trans 'Staff Dashboard' as bb_sd %}{{ bb_sd|force_escape }}"><i class="bi bi-speedometer2"></i><span class="d-lg-none ms-2">{% trans "Staff Dashboard" %}</span></a></li>
+                    {% endif %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% if user.is_staff %}
+                            <li><a class="dropdown-item" href="{% url 'adminpanel:dashboard' %}"><i class="bi bi-speedometer2"></i> {% trans "Staff Dashboard" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'payouts:staff_queue' %}"><i class="bi bi-cash-stack"></i> {% trans "Seller Payouts" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'disputes:staff_queue' %}"><i class="bi bi-shield-exclamation"></i> {% trans "Disputes" %}</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'accounts:dashboard' %}">{% trans "Dashboard" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'orders:my_orders' %}"><i class="bi bi-bag"></i> {% trans "My Orders" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'disputes:mine' %}"><i class="bi bi-flag"></i> {% trans "My Disputes" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'payouts:mine' %}"><i class="bi bi-cash-stack"></i> {% trans "Payouts &amp; Statements" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'donations:mine' %}"><i class="bi bi-gift"></i> {% trans "My Donations" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">{% trans "My Profile" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:verify_seller' %}">
+                                {% trans "Seller Verification" %}
+                                {% if user.is_seller_verified %}<span class="badge bg-success ms-1">✔</span>{% else %}<span class="badge bg-secondary ms-1">{% trans "Pending" %}</span>{% endif %}
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'books:matching_requests' %}">{% trans "Requests for My Books" %}</a></li>
+                            {% if nav_partner %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'partners:dashboard' %}"><i class="bi bi-shop"></i> {% trans "Partner Dashboard" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'partners:settings' %}"><i class="bi bi-gear"></i> {% trans "Shop Settings" %}</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="{% url 'partners:buyback_list' %}"><i class="bi bi-cash-stack"></i> {% trans "My Buyback Requests" %}</a></li>
+                            {% if nav_partner_application %}
+                            <li><a class="dropdown-item" href="{% url 'partners:apply' %}"><i class="bi bi-shop"></i> {% trans "Partner Application" %}
+                                <span class="badge {% if nav_partner_application.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-1">{{ nav_partner_application.get_status_display }}</span></a></li>
+                            {% else %}
+                            <li><a class="dropdown-item" href="{% url 'partners:apply' %}"><i class="bi bi-shop"></i> {% trans "Become a Partner" %}</a></li>
+                            {% endif %}
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'books:saved_search_list' %}">{% trans "Saved Searches" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'notifications:preferences' %}">{% trans "Notification Preferences" %}</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{% url 'accounts:logout' %}">
+                                    {% csrf_token %}
+                                    <button class="dropdown-item" type="submit">{% trans "Logout" %}</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">{% trans "Login" %}</a></li>
+                    <li class="nav-item"><a class="btn bb-sell ms-lg-2 my-1 my-lg-0" href="{% url 'accounts:signup' %}">{% trans "Sign Up" %}</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    <div class="bb-progress" id="bbProgress"></div>
+</nav>
+
+<div class="container mt-3">
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+</div>
+
+<main class="container my-4 bb-page">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="bb-footer bg-dark text-light pt-4 pb-3 mt-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <h5><i class="bi bi-book-half"></i> BookBridge</h5>
+                <p class="small text-secondary mb-2">{% trans "Buy &amp; sell CBSE, ICSE, competitive-exam, and college books &mdash; delivered to your door." %}</p>
+                <div class="small text-secondary">{% trans "Categories: Academic &middot; Competitive &middot; College &middot; Others" %}</div>
+            </div>
+            <div class="col-md-6 text-md-end bb-footer-help">
+                <h5><i class="bi bi-headset"></i> {% trans "Need help?" %}</h5>
+                <ul class="list-unstyled small text-secondary mb-2">
+                    <li><i class="bi bi-telephone"></i> <a class="text-secondary" href="tel:{{ support_phone_tel }}">{{ support_phone_display }}</a></li>
+                    <li class="mt-1"><i class="bi bi-envelope"></i> <a class="text-secondary text-break" href="mailto:{{ support_email }}?subject=BookBridge%20support">{{ support_email }}</a></li>
+                </ul>
+                <div class="small text-secondary bb-footer-links">
+                    <a class="text-secondary" href="{% url 'books:about' %}">{% trans "About" %}</a> &middot;
+                    <a class="text-secondary" href="{% url 'books:contact' %}">{% trans "Contact us" %}</a> &middot;
+                    <a class="text-secondary" href="{% url 'donations:home' %}">{% trans "Donate Books" %}</a> &middot;
+                    <a class="text-secondary" href="{% url 'books:sustainability' %}">{% trans "Sustainability" %}</a>
+                </div>
+            </div>
+        </div>
+        <div class="bb-footer-bottom border-top border-secondary border-opacity-25 mt-3 pt-3 text-center small text-secondary">
+            &copy; {% now "Y" %} BookBridge
+        </div>
+    </div>
+</footer>
+
+<button type="button" class="bb-top" id="bbTop" aria-label="{% trans 'Back to top' as bb_t %}{{ bb_t|force_escape }}"><i class="bi bi-arrow-up"></i></button>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+    var nav = document.getElementById('bbNavbar');
+    var bar = document.getElementById('bbProgress');
+    var ticking = false;
+    function update() {
+        var y = window.scrollY || 0;
+        nav.classList.toggle('scrolled', y > 10);
+        var h = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.transform = 'scaleX(' + (h > 0 ? Math.min(y / h, 1) : 0) + ')';
+        ticking = false;
+    }
+    window.addEventListener('scroll', function () {
+        if (!ticking) { requestAnimationFrame(update); ticking = true; }
+    }, { passive: true });
+    update();
+
+    // Highlight the current page's link
+    var path = location.pathname;
+    document.querySelectorAll('#nav .navbar-nav > .nav-item > a.nav-link[href]').forEach(function (a) {
+        var href = a.getAttribute('href');
+        if (href && href !== '#' && (href === path || (href.length > 1 && path.indexOf(href) === 0 && href !== '/'))) {
+            a.classList.add('active');
+        }
+    });
+})();
+</script>
+<script nonce="{{ csp_nonce }}">
+/* BookBridge animated UI: scroll reveal, count-up, ripple, back-to-top, alert auto-dismiss */
+(function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Back to top
+    var top = document.getElementById('bbTop');
+    if (top) {
+        window.addEventListener('scroll', function () { top.classList.toggle('show', window.scrollY > 400); }, { passive: true });
+        top.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    }
+
+    // Button ripple
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn');
+        if (!btn || reduce) return;
+        var r = btn.getBoundingClientRect(), size = Math.max(r.width, r.height);
+        var dot = document.createElement('span');
+        dot.className = 'bb-ripple';
+        dot.style.width = dot.style.height = size + 'px';
+        dot.style.left = (e.clientX - r.left - size / 2) + 'px';
+        dot.style.top = (e.clientY - r.top - size / 2) + 'px';
+        btn.appendChild(dot);
+        setTimeout(function () { dot.remove(); }, 650);
+    });
+
+    // Auto-dismiss success/info alerts
+    document.querySelectorAll('.alert-success, .alert-info').forEach(function (a) {
+        setTimeout(function () {
+            a.classList.add('bb-leaving');
+            setTimeout(function () { a.remove(); }, 450);
+        }, 6000);
+    });
+
+    if (reduce || !('IntersectionObserver' in window)) return;
+
+    // Count-up for numbers inside .stat-value (only plain-text values)
+    function countUp(el) {
+        if (el.children.length) return;
+        var txt = el.textContent;
+        var m = txt.match(/\d[\d,]*(\.\d+)?/);
+        if (!m || /[\/:]/.test(txt.replace(m[0], ''))) return;
+        var raw = m[0], hasComma = raw.indexOf(',') > -1;
+        var dec = (raw.split('.')[1] || '').length;
+        var target = parseFloat(raw.replace(/,/g, ''));
+        if (!isFinite(target) || target === 0) return;
+        var start = null, dur = 1100;
+        function fmt(v) {
+            var t = v.toFixed(dec);
+            return hasComma ? Number(t).toLocaleString('en-IN', { minimumFractionDigits: dec, maximumFractionDigits: dec }) : t;
+        }
+        function step(ts) {
+            if (start === null) start = ts;
+            var p = Math.min((ts - start) / dur, 1), eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = txt.replace(raw, fmt(target * eased));
+            if (p < 1) requestAnimationFrame(step); else el.textContent = txt;
+        }
+        requestAnimationFrame(step);
+    }
+
+    // Scroll reveal
+    var targets = document.querySelectorAll(
+        'main .card, main .stat-card, main .category-pill, main .alert, main .table-responsive, main .list-group, main h5, main h4, main .pagination'
+    );
+    var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (!en.isIntersecting) return;
+            var el = en.target;
+            io.unobserve(el);
+            el.classList.add('bb-in');
+            el.addEventListener('animationend', function done(ev) {
+                if (ev.target !== el) return;
+                el.classList.remove('bb-reveal', 'bb-in');
+                el.style.removeProperty('--d');
+                el.removeEventListener('animationend', done);
+            });
+            el.querySelectorAll('.stat-value').forEach(countUp);
+            if (el.classList.contains('stat-value')) countUp(el);
+        });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+
+    targets.forEach(function (el) {
+        if (el.closest('.hero') || el.closest('.dropdown-menu') || el.closest('.modal')) return;
+        // nested cards: only animate the outermost one
+        var parentCard = el.parentElement && el.parentElement.closest('.card, .stat-card');
+        if (parentCard) return;
+        // stagger siblings in the same row/grid
+        var idx = Array.prototype.indexOf.call(el.parentElement ? el.parentElement.children : [], el);
+        var isGrid = el.parentElement && (el.parentElement.classList.contains('row') || el.parentElement.className.indexOf('col-') > -1);
+        var host = el.closest('[class*="col-"]');
+        if (host && host.parentElement) idx = Array.prototype.indexOf.call(host.parentElement.children, host);
+        el.style.setProperty('--d', (Math.min(idx < 0 ? 0 : idx, 8) * 0.07) + 's');
+        el.classList.add('bb-reveal');
+        io.observe(el);
+    });
+
+    // Rotating example queries in the home-page AI search box
+    var ai = document.querySelector('.hero input[name="q"]');
+    if (ai) {
+        var samples = [
+            "{% filter escapejs %}{% trans 'Try: "I need DBMS book for B.Tech 3rd semester AKTU"' %}{% endfilter %}",
+            "{% filter escapejs %}{% trans 'Try: "NCERT Physics class 12 in good condition"' %}{% endfilter %}",
+            "{% filter escapejs %}{% trans 'Try: "JEE Mains previous year papers"' %}{% endfilter %}",
+            "{% filter escapejs %}{% trans 'Try: "UPSC polity notes under 300 rupees"' %}{% endfilter %}"
+        ];
+        var i = 0;
+        setInterval(function () {
+            if (document.activeElement === ai || ai.value) return;
+            i = (i + 1) % samples.length;
+            ai.setAttribute('placeholder', samples[i]);
+        }, 3200);
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-sliders"></i> {% trans "Notification Preferences" %}</h4>
+<p class="text-muted small">
+    {% url 'notifications:list' as center_url %}{% blocktrans trimmed %}Choose how you want to hear about offers, orders, messages, and matches. The in-app <a href="{{ center_url }}">Notification Center</a> always keeps a record regardless of what's toggled below.{% endblocktrans %}
+</p>
+
+<form method="post" class="card p-3" style="max-width:520px;">
+    {% csrf_token %}
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="inAppToggle" name="in_app_enabled" {% if prefs.in_app_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="inAppToggle"><i class="bi bi-bell"></i> {% trans "In-app Notification Center" %}</label>
+    </div>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="emailToggle" name="email_enabled" {% if prefs.email_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="emailToggle"><i class="bi bi-envelope"></i> {% trans "Email" %}</label>
+    </div>
+
+    <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" role="switch" id="pushEnableToggle" name="push_enabled" {% if prefs.push_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="pushEnableToggle"><i class="bi bi-phone"></i> {% trans "Push Notifications" %}</label>
+    </div>
+    <p class="small text-muted mb-3">
+        {% trans "Toggling this on will ask your browser for permission and register this device." %}
+        {% if push_subscriptions %}{% blocktrans trimmed count counter=push_subscriptions %}Currently enabled on {{ counter }} device on this account.{% plural %}Currently enabled on {{ counter }} devices on this account.{% endblocktrans %}{% endif %}
+    </p>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="smsToggle" name="sms_enabled" {% if prefs.sms_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="smsToggle"><i class="bi bi-chat-square-text"></i> {% trans "SMS" %}</label>
+    </div>
+
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="whatsappToggle" name="whatsapp_enabled" {% if prefs.whatsapp_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="whatsappToggle"><i class="bi bi-whatsapp"></i> {% trans "WhatsApp" %}</label>
+    </div>
+    {% if not user.phone %}
+    <p class="small text-warning">{% url 'accounts:edit_profile' as profile_url %}{% blocktrans trimmed %}Add a phone number on your <a href="{{ profile_url }}">profile</a> for SMS/WhatsApp to actually reach you.{% endblocktrans %}</p>
+    {% endif %}
+
+    <button type="submit" class="btn btn-dark mt-2">{% trans "Save Preferences" %}</button>
+</form>
+
+<script src="{% static 'js/push.js' %}"></script>
+{% endblock %}

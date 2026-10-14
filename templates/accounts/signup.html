@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+{% block title %}{% trans "Create your BookBridge account" %}{% endblock %}
+{% block content %}
+<style>
+    .errorlist { color: #dc3545; font-size: .875rem; list-style: none; padding: 0; margin: .25rem 0 0; }
+</style>
+<div class="row justify-content-center">
+<div class="col-lg-7">
+<div class="card p-4">
+    <h4 class="mb-3">{% trans "Create your BookBridge account" %}</h4>
+    <form method="post" enctype="multipart/form-data" data-availability-url="{% url 'accounts:check_availability' %}">
+        {% csrf_token %}
+        <input type="hidden" name="{{ form_token_field }}" value="{{ form_token }}">
+        {# Honeypot: invisible to people, tempting to bots. Leave it empty. #}
+        <div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+            <label>{% trans "Leave this field empty" %} <input type="text" name="{{ honeypot_field }}" tabindex="-1" autocomplete="off"></label>
+        </div>
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        {% if form.errors or partner_form.errors %}
+        <div class="alert alert-danger" id="formErrors">{% trans "Your account was not created yet - please fix the errors marked below" %}{% if partner_form.errors %} {% trans "(including the shop details section)" %}{% endif %}.</div>
+        {% endif %}
+        {% for field in form %}
+        {% if field.name != 'apply_as_partner' %}
+        <div class="mb-3">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+            {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+
+        <div class="card border-success mb-3">
+            <div class="card-body py-2">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="apply_as_partner" id="applyPartner" {% if open_partner %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold" for="applyPartner">
+                        <i class="bi bi-shop"></i> {{ form.apply_as_partner.label }}
+                    </label>
+                </div>
+                <div class="small text-muted ms-4">
+                    {% blocktrans trimmed %}Partners buy used books straight from sellers, get their own business dashboard with analytics, and resell on BookBridge. Everything a normal member can do is still available to you.{% endblocktrans %}
+                </div>
+            </div>
+
+            <div id="partnerSection" class="card-body border-top {% if not open_partner %}d-none{% endif %}">
+                {% if partner_form.non_field_errors %}<div class="alert alert-danger">{{ partner_form.non_field_errors }}</div>{% endif %}
+                <h6 class="mb-2">{% trans "Shop details" %}</h6>
+
+                <label class="form-label small">{% trans "Shop Name" %}</label>
+                {{ partner_form.shop_name }}
+                {{ partner_form.shop_name.errors }}
+
+                <label class="form-label small mt-2">{% trans "Shop Address" %}</label>
+                {{ partner_form.shop_address }}
+                {{ partner_form.shop_address.errors }}
+
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label small">{% trans "Shop City" %}</label>
+                        {{ partner_form.shop_city }}
+                        {{ partner_form.shop_city.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">{% trans "Shop Pincode" %}</label>
+                        {{ partner_form.shop_pincode }}
+                        {{ partner_form.shop_pincode.errors }}
+                    </div>
+                </div>
+
+                {{ partner_form.shop_latitude }}
+                {{ partner_form.shop_longitude }}
+                <button type="button" id="useLocationBtn" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="bi bi-geo-alt"></i> {% trans "Use my current location" %}
+                </button>
+                <span id="locationStatus" class="small text-muted ms-2"></span>
+                <p class="small text-muted mt-1 mb-2">{% trans "Optional, but lets us match you to nearby buyback requests by distance." %}</p>
+
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">{% trans "Shop Contact Phone" %}</label>
+                        {{ partner_form.contact_phone }}
+                        {{ partner_form.contact_phone.errors }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">{% trans "GSTIN (optional)" %}</label>
+                        {{ partner_form.gstin }}
+                        <div class="form-text small">{% trans "15 characters. We check the format and checksum." %}</div>
+                        {{ partner_form.gstin.errors }}
+                    </div>
+                </div>
+
+                <hr>
+                {% include "partners/_id_fields.html" with form=partner_form %}
+            </div>
+        </div>
+
+        {% if turnstile_site_key %}
+        <div class="cf-turnstile mb-3" data-sitekey="{{ turnstile_site_key }}"></div>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+        {% endif %}
+        <button class="btn btn-warning text-dark fw-semibold w-100">{% trans "Sign Up" %}</button>
+    </form>
+    <div class="text-center mt-3 small">{% trans "Already have an account?" %} <a href="{% url 'accounts:login' %}">{% trans "Login" %}</a></div>
+</div>
+</div>
+</div>
+{% trans "Location not supported by this browser." as js_loc_unsupported %}
+{% trans "Getting your location..." as js_loc_getting %}
+{% trans "Location captured." as js_loc_done %}
+{% trans "Could not get your location - you can still submit without it." as js_loc_fail %}
+<script nonce="{{ csp_nonce }}">
+document.querySelectorAll('form input:not([type=checkbox]):not([type=radio]):not([type=hidden]), form select, form textarea').forEach(el => el.classList.add('form-control'));
+
+const applyBox = document.getElementById('applyPartner');
+const partnerSection = document.getElementById('partnerSection');
+
+function syncPartnerSection() {
+    const on = applyBox.checked;
+    partnerSection.classList.toggle('d-none', !on);
+    partnerSection.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = !on; });
+}
+applyBox.addEventListener('change', syncPartnerSection);
+syncPartnerSection();   // run once on page load
+
+// After a failed submit, jump to the first wrong field so it doesn't look like nothing happened.
+const firstBad = document.querySelector('.is-invalid');
+if (firstBad) {
+    firstBad.scrollIntoView({block: 'center'});
+    firstBad.focus({preventScroll: true});
+}
+
+document.getElementById('useLocationBtn').addEventListener('click', function () {
+    const status = document.getElementById('locationStatus');
+    if (!navigator.geolocation) { status.textContent = '{{ js_loc_unsupported|escapejs }}'; return; }
+    status.textContent = '{{ js_loc_getting|escapejs }}';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        document.getElementById('id_shop_latitude').value = pos.coords.latitude;
+        document.getElementById('id_shop_longitude').value = pos.coords.longitude;
+        status.textContent = '{{ js_loc_done|escapejs }}';
+    }, function () {
+        status.textContent = '{{ js_loc_fail|escapejs }}';
+    });
+});
+</script>
+<script src="{% static 'js/auth-ui.js' %}"></script>
+<script src="{% static 'js/upload-preview.js' %}"></script>
+{% endblock %}
