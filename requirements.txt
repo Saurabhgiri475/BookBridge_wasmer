@@ -1,0 +1,22 @@
+Django>=6.0.8,<6.1
+Pillow>=10.0
+pytesseract>=0.3.10
+razorpay>=1.4.2
+requests>=2.31
+certifi>=2024.2.2  # CA bundle for SMTP over TLS on Wasmer (bookmarket/email_backend.py)
+python-dotenv>=1.0
+twilio>=9.0
+reportlab>=4.0
+psycopg[binary]>=3.1
+uvicorn>=0.30  # ASGI server used by Wasmer Edge (see DEPLOY_WASMER.md)
+whitenoise>=6.9,<7
+dj-database-url>=2.3,<3
+
+# Bulk listing upload (books/bulk_import.py) - reading/writing .xlsx files
+# for the seller-facing CSV/Excel import + downloadable template.
+openpyxl>=3.1
+cryptography>=42.0  # staff 2FA secrets are encrypted at rest (accounts/twofactor.py)
+segno>=1.6  # QR code for authenticator-app enrolment (inline SVG, no external service)
+
+# Cloud file storage (Cloudflare R2 / S3-compatible) - used only when S3_* env vars are set (see DEPLOY_WASMER.md)
+django-storages[s3]>=1.14.6

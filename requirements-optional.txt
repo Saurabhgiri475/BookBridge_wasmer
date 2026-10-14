@@ -1,0 +1,18 @@
+# Optional extras - NOT installed by default because they need native libraries that
+# are not available on every host (e.g. Wasmer Edge). The app works without them.
+pillow-heif>=0.18  # HEIC/HEIF (iPhone) photo uploads - accounts/validators.py; without it .heic uploads are politely refused
+pywebpush>=2.0  # browser push notifications; depends on http-ece, which has no prebuilt wheel (Wasmer's installer needs wheels). Without it push is skipped, email/in-app/SMS still work
+
+# ML features - left out of requirements.txt because together they add ~250 MB to the
+# installed environment, which made Wasmer's builder run out of memory while exporting
+# the build ("Build used too much memory"). The app works without them: price suggestions
+# use the rule-based + sales-average logic, and "also bought" uses the real-time SQL query.
+# Install locally / on a bigger host to enable the trained models:
+scikit-learn>=1.4  # books/ml_recommendations.py, books/ml_price_model.py
+scipy>=1.11  # sparse interaction matrix (ml_recommendations.py)
+numpy>=1.26
+pandas>=2.0  # price model feature frames (ml_price_model.py)
+joblib>=1.3  # model persistence
+
+# Only if you set REDIS_URL (CACHE_BACKEND=redis); not needed with CACHE_BACKEND=db
+redis>=5.0
