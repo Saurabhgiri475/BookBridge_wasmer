@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" role="img" aria-labelledby="t d">
+  <title id="t">An open book with a plant growing from it</title>
+  <desc id="d">A green sprout rises from the middle of an open book, standing for books being reused instead of reprinted.</desc>
+  <circle cx="200" cy="170" r="140" fill="#fff4de"/>
+  <circle cx="86" cy="92" r="8" fill="#f2a71b" opacity=".55"/>
+  <circle cx="318" cy="72" r="5" fill="#3fb36b" opacity=".6"/>
+  <circle cx="338" cy="150" r="7" fill="#f2a71b" opacity=".45"/>
+  <path d="M70 212 L200 242 L330 212 L330 252 L200 284 L70 252 Z" fill="#1f3a5f"/>
+  <path d="M80 200 Q140 184 200 214 L200 264 Q140 236 80 248 Z" fill="#ffffff" stroke="#cfd8e6" stroke-width="2"/>
+  <path d="M320 200 Q260 184 200 214 L200 264 Q260 236 320 248 Z" fill="#f7f9fc" stroke="#cfd8e6" stroke-width="2"/>
+  <g fill="none" stroke="#c5cfdf" stroke-width="4" stroke-linecap="round">
+    <path d="M100 218 Q130 212 168 230"/><path d="M100 232 Q130 226 168 244"/>
+    <path d="M300 218 Q270 212 232 230"/><path d="M300 232 Q270 226 232 244"/>
+  </g>
+  <path d="M200 220 C196 186 204 152 200 116" fill="none" stroke="#2f9e5b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M200 164 C160 166 138 138 140 112 C176 110 199 130 200 164 Z" fill="#3fb36b"/>
+  <path d="M200 142 C240 144 264 114 262 88 C226 90 202 108 200 142 Z" fill="#2f9e5b"/>
+  <path d="M200 120 C186 112 184 96 192 84 C204 92 208 106 200 120 Z" fill="#6cc98f"/>
+  <path d="M200 164 C178 160 160 146 150 126" fill="none" stroke="#2a8a50" stroke-width="2" opacity=".5" stroke-linecap="round"/>
+  <path d="M200 142 C222 138 242 124 254 104" fill="none" stroke="#217a44" stroke-width="2" opacity=".5" stroke-linecap="round"/>
+</svg>
